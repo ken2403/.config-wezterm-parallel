@@ -12,7 +12,6 @@ AI-Agent並列開発をサポートするWezTerm + zsh設定
 │   └── wezterm.lua      # WezTerm設定（UI・色・ペイン構成）
 ├── zsh/
 │   └── parallel-dev.zsh # 並列開発コマンド群
-├── zshrc-snippet.zsh    # zshrcに追加する内容
 ├── install.sh           # インストールスクリプト
 └── README.md
 ```
@@ -24,16 +23,6 @@ source ./install.sh
 ```
 
 ※ `source` で実行すると zshrc の再読み込みまで自動で行われます
-
-## zshrcに追加する内容
-
-```zsh
-# PATHに追加（path配列内）
-/Applications/WezTerm.app/Contents/MacOS(N-/)
-
-# Parallel Development Commands
-source ~/.config/zsh/parallel-dev.zsh
-```
 
 ## コマンド
 
