@@ -63,19 +63,11 @@ if ! grep -q "WezTerm.app/Contents/MacOS" "$ZSHRC" 2>/dev/null; then
   fi
 fi
 
-# Add sheldon source if not present
-if ! grep -q 'eval "$(sheldon source)"' "$ZSHRC" 2>/dev/null; then
-  echo "Adding sheldon source..."
-  echo '' >> "$ZSHRC"
-  echo '# Sheldon plugin manager' >> "$ZSHRC"
-  echo 'eval "$(sheldon source)"' >> "$ZSHRC"
-fi
-
-# Add parallel-dev.zsh source if not present (must be after sheldon)
+# Add parallel-dev.zsh source if not present (includes sheldon, fzf, zoxide, colors)
 if ! grep -q "parallel-dev.zsh" "$ZSHRC" 2>/dev/null; then
   echo "Adding parallel-dev.zsh source..."
   echo '' >> "$ZSHRC"
-  echo '# Parallel Development Commands + Color Settings' >> "$ZSHRC"
+  echo '# Parallel Development (sheldon, fzf, zoxide, color settings, commands)' >> "$ZSHRC"
   echo 'source ~/.config/zsh/parallel-dev.zsh' >> "$ZSHRC"
 fi
 
