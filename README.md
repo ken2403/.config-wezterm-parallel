@@ -11,7 +11,8 @@ AI-Agent並列開発をサポートするWezTerm + zsh設定
 ├── wezterm/
 │   └── wezterm.lua      # WezTerm設定（UI・色・ペイン構成）
 ├── zsh/
-│   └── parallel-dev.zsh # 並列開発コマンド群 + 色設定 + ヘルプ
+│   ├── parallel-dev.zsh # 並列開発コマンド群 + 色設定 + ヘルプ
+│   └── .p10k.zsh        # Powerlevel10k設定
 ├── sheldon/
 │   └── plugins.toml     # sheldonプラグイン設定
 ├── install.sh           # インストールスクリプト

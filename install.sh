@@ -35,6 +35,7 @@ fi
 echo "Creating symlinks..."
 ln -sf "$SCRIPT_DIR/wezterm/wezterm.lua" ~/.config/wezterm/wezterm.lua
 ln -sf "$SCRIPT_DIR/zsh/parallel-dev.zsh" ~/.config/zsh/parallel-dev.zsh
+ln -sf "$SCRIPT_DIR/zsh/.p10k.zsh" ~/.config/zsh/.p10k.zsh
 ln -sf "$SCRIPT_DIR/sheldon/plugins.toml" ~/.config/sheldon/plugins.toml
 
 # Update zshrc
