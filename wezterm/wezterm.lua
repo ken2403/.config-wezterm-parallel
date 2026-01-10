@@ -9,14 +9,16 @@ if wezterm.config_builder then
 end
 
 -- =============================================================================
--- 起動時に L字型3ペイン構成
+-- 起動時に L字型3ペイン構成 + diffwatch自動起動
 -- =============================================================================
 wezterm.on("gui-startup", function(cmd)
   local tab, pane, window = mux.spawn_window(cmd or {})
   -- 右側に35%のペインを作成（モニター用）
-  local right_pane = pane:split({ direction = "Right", size = 0.35 })
+  local monitor_pane = pane:split({ direction = "Right", size = 0.35 })
   -- 右ペインの下半分を人間用に
-  right_pane:split({ direction = "Bottom", size = 0.5 })
+  monitor_pane:split({ direction = "Bottom", size = 0.5 })
+  -- モニターペインでdiffwatch起動
+  monitor_pane:send_text("diffwatch\n")
   -- フォーカスを左のメインペインに戻す
   pane:activate()
 end)
@@ -157,16 +159,18 @@ end)
 -- =============================================================================
 config.keys = {
   -- タブ操作
-  -- 新規タブ（L字型3ペイン構成）
+  -- 新規タブ（L字型3ペイン構成 + diffwatch自動起動）
   {
     key = "t",
     mods = "CMD",
     action = wezterm.action_callback(function(window, pane)
       local tab, new_pane, _ = window:mux_window():spawn_tab({})
       -- 右側にモニター用ペイン
-      local right_pane = new_pane:split({ direction = "Right", size = 0.35 })
+      local monitor_pane = new_pane:split({ direction = "Right", size = 0.35 })
       -- 右下に人間用ペイン
-      right_pane:split({ direction = "Bottom", size = 0.5 })
+      monitor_pane:split({ direction = "Bottom", size = 0.5 })
+      -- モニターペインでdiffwatch起動
+      monitor_pane:send_text("diffwatch\n")
       -- フォーカスを左のメインペインに
       new_pane:activate()
     end),
