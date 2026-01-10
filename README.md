@@ -2,6 +2,8 @@
 
 AI-Agent並列開発をサポートするWezTerm + zsh設定
 
+> **Note**: macOS専用（WezTerm CLIパスが `/Applications/WezTerm.app/Contents/MacOS/wezterm` 前提）
+
 ## 構成
 
 ```
