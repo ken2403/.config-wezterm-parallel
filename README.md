@@ -20,9 +20,10 @@ AI-Agent並列開発をサポートするWezTerm + zsh設定
 ## インストール
 
 ```bash
-chmod +x install.sh
-./install.sh
+source ./install.sh
 ```
+
+※ `source` で実行すると zshrc の再読み込みまで自動で行われます
 
 ## zshrcに追加する内容
 

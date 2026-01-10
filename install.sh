@@ -67,4 +67,14 @@ fi
 echo ""
 echo "Done!"
 echo ""
-echo "Run: source ~/.zshrc"
+
+# source は親シェルに反映されないため、実行方法に応じて対応
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]] || [[ -n "$ZSH_VERSION" && "$ZSH_EVAL_CONTEXT" =~ :file$ ]]; then
+  # source で実行された場合
+  echo "Reloading zshrc..."
+  source "$ZSHRC"
+  echo "Ready!"
+else
+  # ./install.sh で実行された場合
+  echo "Run: source ~/.zshrc"
+fi
