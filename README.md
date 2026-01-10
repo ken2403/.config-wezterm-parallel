@@ -32,7 +32,7 @@ source ./install.sh
 |----------|------|
 | `pdev <task>` | 並列開発タブ作成 |
 | `pstatus` | 全Worktree状態確認 |
-| `monitor` | 差分モニター |
+| `diffwatch` | 差分モニター |
 | `pmerge <task>` | マージ |
 | `pclean` | Worktree削除 |
 | `pdhelp` | 並列開発ヘルプ |

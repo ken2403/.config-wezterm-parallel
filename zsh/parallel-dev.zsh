@@ -230,8 +230,8 @@ pdev() {
     # モニターペインの下に人間ペイン (50%)
     "$wezterm_cli" cli split-pane --bottom --percent 50 --pane-id "$monitor_pane_id" --cwd "$worktree_path"
 
-    # モニターペインでmonitorコマンドを実行
-    "$wezterm_cli" cli send-text --pane-id "$monitor_pane_id" --no-paste "monitor"$'\n'
+    # モニターペインでdiffwatchコマンドを実行
+    "$wezterm_cli" cli send-text --pane-id "$monitor_pane_id" --no-paste "diffwatch"$'\n'
 
     # メインペインにフォーカス
     "$wezterm_cli" cli activate-pane --pane-id "$main_pane_id"
@@ -248,9 +248,9 @@ pdev() {
 }
 
 # -----------------------------------------------------------------------------
-# monitor - 差分モニター
+# diffwatch - 差分モニター
 # -----------------------------------------------------------------------------
-monitor() {
+diffwatch() {
   local interval="${1:-2}"
 
   while true; do
@@ -461,7 +461,7 @@ pdhelp() {
 
   【状態確認】
     pstatus                   全Worktreeの状態一覧
-    monitor [interval]        差分モニター (default: 2s)
+    diffwatch [interval]      差分モニター (default: 2s)
 
   【マージ・削除】
     pmerge <task> [target]    タスクをマージ
