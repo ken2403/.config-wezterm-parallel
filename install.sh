@@ -6,6 +6,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ZSHRC="$HOME/.zshrc"
 
 echo "Installing WezTerm Parallel Development config..."
 
@@ -29,13 +30,41 @@ echo "Creating symlinks..."
 ln -sf "$SCRIPT_DIR/wezterm/wezterm.lua" ~/.config/wezterm/wezterm.lua
 ln -sf "$SCRIPT_DIR/zsh/parallel-dev.zsh" ~/.config/zsh/parallel-dev.zsh
 
+# Update zshrc
+echo "Updating ~/.zshrc..."
+
+# Add WezTerm CLI to PATH if not present
+if ! grep -q "WezTerm.app/Contents/MacOS" "$ZSHRC" 2>/dev/null; then
+  echo "Adding WezTerm CLI to PATH..."
+  # Find the path=( block and add WezTerm path
+  if grep -q "^path=(" "$ZSHRC"; then
+    # Insert after /Library/Apple/usr/bin or at end of path array
+    sed -i '' '/\/Library\/Apple\/usr\/bin/a\
+  /Applications/WezTerm.app/Contents/MacOS(N-/)
+' "$ZSHRC" 2>/dev/null || \
+    sed -i '' '/^path=(/,/)/{
+      /)/{
+        i\
+  /Applications/WezTerm.app/Contents/MacOS(N-/)
+      }
+    }' "$ZSHRC"
+  else
+    # No path array found, add export
+    echo '' >> "$ZSHRC"
+    echo '# WezTerm CLI' >> "$ZSHRC"
+    echo 'export PATH="/Applications/WezTerm.app/Contents/MacOS:$PATH"' >> "$ZSHRC"
+  fi
+fi
+
+# Add parallel-dev.zsh source if not present
+if ! grep -q "parallel-dev.zsh" "$ZSHRC" 2>/dev/null; then
+  echo "Adding parallel-dev.zsh source..."
+  echo '' >> "$ZSHRC"
+  echo '# Parallel Development Commands' >> "$ZSHRC"
+  echo 'source ~/.config/zsh/parallel-dev.zsh' >> "$ZSHRC"
+fi
+
 echo ""
-echo "Done! Add the following to your ~/.zshrc if not already present:"
+echo "Done!"
 echo ""
-echo "  # WezTerm CLI path (in your path array)"
-echo "  /Applications/WezTerm.app/Contents/MacOS(N-/)"
-echo ""
-echo "  # Parallel Development Commands"
-echo "  source ~/.config/zsh/parallel-dev.zsh"
-echo ""
-echo "Then run: source ~/.zshrc"
+echo "Run: source ~/.zshrc"
