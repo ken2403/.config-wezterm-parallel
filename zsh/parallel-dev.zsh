@@ -215,26 +215,42 @@ pdev() {
     _info "Opening new tab with 3-pane layout..."
 
     # WezTerm CLIで新タブ作成（メインペイン）
-    local main_pane_id=$("$wezterm_cli" cli spawn --cwd "$worktree_path")
+    local main_pane_id
+    main_pane_id=$("$wezterm_cli" cli spawn --cwd "$worktree_path" 2>/dev/null)
 
-    if [[ -z "$main_pane_id" ]]; then
-      _error "Failed to create new tab"
+    if [[ -z "$main_pane_id" ]] || ! [[ "$main_pane_id" =~ ^[0-9]+$ ]]; then
+      _error "Failed to create new tab (pane_id: ${main_pane_id:-empty})"
       _warn "Falling back to cd"
       cd "$worktree_path"
       return 0
     fi
 
+    # CLIコマンド間に少し待機（pane IDが安定するまで）
+    sleep 0.2
+
     # 右側にモニターペイン (35%)
-    local monitor_pane_id=$("$wezterm_cli" cli split-pane --right --percent 35 --pane-id "$main_pane_id" --cwd "$worktree_path")
+    local monitor_pane_id
+    monitor_pane_id=$("$wezterm_cli" cli split-pane --right --percent 35 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null)
+
+    if [[ -z "$monitor_pane_id" ]] || ! [[ "$monitor_pane_id" =~ ^[0-9]+$ ]]; then
+      _warn "Failed to create monitor pane, tab created without split"
+      "$wezterm_cli" cli activate-pane --pane-id "$main_pane_id" 2>/dev/null
+      _success "New tab created (single pane)"
+      return 0
+    fi
+
+    sleep 0.1
 
     # モニターペインの下に人間ペイン (50%)
-    "$wezterm_cli" cli split-pane --bottom --percent 50 --pane-id "$monitor_pane_id" --cwd "$worktree_path"
+    "$wezterm_cli" cli split-pane --bottom --percent 50 --pane-id "$monitor_pane_id" --cwd "$worktree_path" 2>/dev/null
+
+    sleep 0.1
 
     # モニターペインでdiffwatchコマンドを実行
-    "$wezterm_cli" cli send-text --pane-id "$monitor_pane_id" --no-paste "diffwatch"$'\n'
+    "$wezterm_cli" cli send-text --pane-id "$monitor_pane_id" --no-paste "diffwatch"$'\n' 2>/dev/null
 
     # メインペインにフォーカス
-    "$wezterm_cli" cli activate-pane --pane-id "$main_pane_id"
+    "$wezterm_cli" cli activate-pane --pane-id "$main_pane_id" 2>/dev/null
 
     _success "New tab created"
     _info "Tab: ${repo_name}-${task_name}"
