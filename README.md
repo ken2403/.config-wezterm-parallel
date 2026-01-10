@@ -11,7 +11,9 @@ AI-Agent並列開発をサポートするWezTerm + zsh設定
 ├── wezterm/
 │   └── wezterm.lua      # WezTerm設定（UI・色・ペイン構成）
 ├── zsh/
-│   └── parallel-dev.zsh # 並列開発コマンド群
+│   └── parallel-dev.zsh # 並列開発コマンド群 + 色設定 + ヘルプ
+├── sheldon/
+│   └── plugins.toml     # sheldonプラグイン設定
 ├── install.sh           # インストールスクリプト
 └── README.md
 ```
@@ -33,7 +35,8 @@ source ./install.sh
 | `monitor` | 差分モニター |
 | `pmerge <task>` | マージ |
 | `pclean` | Worktree削除 |
-| `pdhelp` | ヘルプ |
+| `pdhelp` | 並列開発ヘルプ |
+| `wh` | WezTermショートカットヘルプ |
 
 ## 使い方
 

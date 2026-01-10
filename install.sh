@@ -13,6 +13,7 @@ echo "Installing WezTerm Parallel Development config..."
 # Create config directories
 mkdir -p ~/.config/wezterm
 mkdir -p ~/.config/zsh
+mkdir -p ~/.config/sheldon
 
 # Backup existing configs
 if [[ -f ~/.config/wezterm/wezterm.lua ]] && [[ ! -L ~/.config/wezterm/wezterm.lua ]]; then
@@ -25,10 +26,16 @@ if [[ -f ~/.config/zsh/parallel-dev.zsh ]] && [[ ! -L ~/.config/zsh/parallel-dev
   mv ~/.config/zsh/parallel-dev.zsh ~/.config/zsh/parallel-dev.zsh.backup
 fi
 
+if [[ -f ~/.config/sheldon/plugins.toml ]] && [[ ! -L ~/.config/sheldon/plugins.toml ]]; then
+  echo "Backing up existing sheldon plugins.toml..."
+  mv ~/.config/sheldon/plugins.toml ~/.config/sheldon/plugins.toml.backup
+fi
+
 # Create symlinks
 echo "Creating symlinks..."
 ln -sf "$SCRIPT_DIR/wezterm/wezterm.lua" ~/.config/wezterm/wezterm.lua
 ln -sf "$SCRIPT_DIR/zsh/parallel-dev.zsh" ~/.config/zsh/parallel-dev.zsh
+ln -sf "$SCRIPT_DIR/sheldon/plugins.toml" ~/.config/sheldon/plugins.toml
 
 # Update zshrc
 echo "Updating ~/.zshrc..."
@@ -56,11 +63,19 @@ if ! grep -q "WezTerm.app/Contents/MacOS" "$ZSHRC" 2>/dev/null; then
   fi
 fi
 
-# Add parallel-dev.zsh source if not present
+# Add sheldon source if not present
+if ! grep -q 'eval "$(sheldon source)"' "$ZSHRC" 2>/dev/null; then
+  echo "Adding sheldon source..."
+  echo '' >> "$ZSHRC"
+  echo '# Sheldon plugin manager' >> "$ZSHRC"
+  echo 'eval "$(sheldon source)"' >> "$ZSHRC"
+fi
+
+# Add parallel-dev.zsh source if not present (must be after sheldon)
 if ! grep -q "parallel-dev.zsh" "$ZSHRC" 2>/dev/null; then
   echo "Adding parallel-dev.zsh source..."
   echo '' >> "$ZSHRC"
-  echo '# Parallel Development Commands' >> "$ZSHRC"
+  echo '# Parallel Development Commands + Color Settings' >> "$ZSHRC"
   echo 'source ~/.config/zsh/parallel-dev.zsh' >> "$ZSHRC"
 fi
 
