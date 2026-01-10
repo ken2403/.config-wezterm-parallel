@@ -215,7 +215,7 @@ pdev() {
     _info "Opening new tab with 3-pane layout..."
 
     # WezTerm CLIで新タブ作成（メインペイン）
-    local main_pane_id=$("$wezterm_cli" cli spawn --new-window false --cwd "$worktree_path")
+    local main_pane_id=$("$wezterm_cli" cli spawn --cwd "$worktree_path")
 
     if [[ -z "$main_pane_id" ]]; then
       _error "Failed to create new tab"
