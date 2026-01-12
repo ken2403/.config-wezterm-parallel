@@ -74,7 +74,7 @@ source ./install.sh
 
 | コマンド | 説明 |
 |----------|------|
-| `pdev <task>` | 並列開発タブ作成（4ペイン + 2モニター） |
+| `pdev <task>` | **Worktree作成** + 新タブ（4ペイン + 2モニター） |
 | `pstatus` | 全Worktree状態確認 |
 | `diffwatch [interval]` | ワーキング差分モニター（デフォルト2秒） |
 | `branchdiff [interval]` | ブランチ差分モニター（デフォルト2秒） |
@@ -85,6 +85,8 @@ source ./install.sh
 
 ## 使い方
 
+### 新規タスクの開始（Worktree作成）
+
 ```bash
 cd /path/to/git-repo
 pdev feat-auth-login
@@ -94,14 +96,38 @@ pdev feat-auth-login
 # → 左下: ブランチ差分監視（branchdiff自動起動）
 ```
 
+### 既存Worktreeでの作業
+
+```bash
+# 既存のWorktreeディレクトリに移動済みの場合
+# Cmd+T で4ペインの新規タブを開く（Worktree作成なし）
+```
+
+### ワークフロー例
+
+1. **メインリポジトリで新規タスク開始**
+   ```bash
+   cd ~/projects/myapp          # メインリポジトリ
+   pdev feat-user-profile       # Worktree + 新タブ作成
+   ```
+
+2. **既存タスクに戻る**
+   ```bash
+   cd ~/projects/myapp-feat-user-profile
+   # Cmd+T で4ペイン構成の新規タブを開く
+   ```
+
+3. **シンプルなタブが必要な場合**
+   - `Cmd+Shift+T` でペイン分割なしのタブを開く
+
 ## ショートカット
 
 ### タブ操作
 
 | キー | 機能 |
 |------|------|
-| `Cmd+T` | 新タブ（4ペイン + 2モニター） |
-| `Cmd+Shift+T` | シンプルな新タブ（分割なし） |
+| `Cmd+T` | 新タブ（4ペイン + 2モニター、現在のディレクトリで開く） |
+| `Cmd+Shift+T` | シンプルな新タブ（分割なし、現在のディレクトリで開く） |
 | `Cmd+W` | タブを閉じる |
 | `Cmd+1-9` | タブ番号で移動 |
 | `Cmd+Shift+[/]` | 前/次のタブ |

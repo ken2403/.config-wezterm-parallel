@@ -661,12 +661,14 @@ pdhelp() {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   【タスク作成】
-    pdev <task-name> [base]   新規並列開発タブ作成
+    pdev <task-name> [base]   新規Worktree作成 + 4ペインタブ
 
     例: pdev feat-auth-login
-        → Directory: ../feat-auth-login
+        → Directory: ../feat-auth-login (Worktree作成)
         → Branch:    feat/auth/login
-        → 3-pane layout (AI / Monitor / Human)
+        → 4-pane layout with dual monitors
+
+    ※ Cmd+T: 現在のディレクトリで4ペインタブ作成（Worktree作成なし）
 
   【状態確認】
     pstatus                   全Worktreeの状態一覧
