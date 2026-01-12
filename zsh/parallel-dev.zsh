@@ -346,13 +346,15 @@ diffwatch() {
     if [[ $modified -gt 0 ]] || [[ $staged -gt 0 ]] || [[ $untracked -gt 0 ]]; then
       # 変更があるファイルを収集
       local -A changed_files=()
-      while IFS=$'\t' read -r change_type file_status filepath; do
+      while IFS=$'\t' read -r change_type file_status filepath rest; do
         # パスの正規化（先頭の./を削除）
         filepath="${filepath#./}"
+        # リネームの場合は最後のフィールドを使用
+        [[ -n "$rest" ]] && filepath="${rest#./}"
         [[ -n "$filepath" ]] && changed_files[$filepath]="${change_type}|${file_status}"
       done < <({
-        git diff --name-status 2>/dev/null | awk '{print "modified\t" $1 "\t" $2}'
-        git diff --cached --name-status 2>/dev/null | awk '{print "staged\t" $1 "\t" $2}'
+        git diff --name-status 2>/dev/null | awk -F'\t' '{print "modified\t" $0}'
+        git diff --cached --name-status 2>/dev/null | awk -F'\t' '{print "staged\t" $0}'
         git ls-files --others --exclude-standard 2>/dev/null | awk '{print "untracked\tU\t" $0}'
       })
 
@@ -702,9 +704,11 @@ branchdiff() {
     if [[ $changed_files -gt 0 ]] || [[ $untracked_count -gt 0 ]]; then
       # 変更があるファイルを収集
       local -A changed_files_map=()
-      while IFS=$'\t' read -r file_status filepath; do
+      while IFS=$'\t' read -r file_status filepath rest; do
         # パスの正規化（先頭の./を削除）
         filepath="${filepath#./}"
+        # リネームの場合は最後のフィールドを使用
+        [[ -n "$rest" ]] && filepath="${rest#./}"
         [[ -n "$filepath" ]] && changed_files_map[$filepath]="$file_status"
       done < <({
         git diff --name-status "${default_branch}...HEAD" 2>/dev/null
