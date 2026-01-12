@@ -373,18 +373,31 @@ diffwatch() {
       # 変更があるディレクトリを特定（untrackedディレクトリも追加）
       local -A dir_has_changes
       local -A seen_top_dirs
+      local -A seen_top_files
+
       for dir in "${top_dirs[@]}"; do
         seen_top_dirs[$dir]=1
       done
 
+      for file in "${top_files[@]}"; do
+        seen_top_files[$file]=1
+      done
+
       for filepath in "${(@k)changed_files}"; do
-        topdir=$(echo "$filepath" | cut -d'/' -f1)
         if [[ "$filepath" == */* ]]; then
+          # ディレクトリ内のファイル
+          topdir=$(echo "$filepath" | cut -d'/' -f1)
           dir_has_changes[$topdir]=1
           # untrackedディレクトリがtop_dirsにない場合は追加
           if [[ -z "${seen_top_dirs[$topdir]}" ]]; then
             top_dirs+=("$topdir")
             seen_top_dirs[$topdir]=1
+          fi
+        else
+          # ルートレベルのファイル（untrackedファイル含む）
+          if [[ -z "${seen_top_files[$filepath]}" ]]; then
+            top_files+=("$filepath")
+            seen_top_files[$filepath]=1
           fi
         fi
       done
@@ -713,18 +726,31 @@ branchdiff() {
       # 変更があるディレクトリを特定（untrackedディレクトリも追加）
       local -A dir_has_changes
       local -A seen_top_dirs
+      local -A seen_top_files
+
       for dir in "${top_dirs[@]}"; do
         seen_top_dirs[$dir]=1
       done
 
+      for file in "${top_files[@]}"; do
+        seen_top_files[$file]=1
+      done
+
       for filepath in "${(@k)changed_files_map}"; do
-        topdir=$(echo "$filepath" | cut -d'/' -f1)
         if [[ "$filepath" == */* ]]; then
+          # ディレクトリ内のファイル
+          topdir=$(echo "$filepath" | cut -d'/' -f1)
           dir_has_changes[$topdir]=1
           # untrackedディレクトリがtop_dirsにない場合は追加
           if [[ -z "${seen_top_dirs[$topdir]}" ]]; then
             top_dirs+=("$topdir")
             seen_top_dirs[$topdir]=1
+          fi
+        else
+          # ルートレベルのファイル（untrackedファイル含む）
+          if [[ -z "${seen_top_files[$filepath]}" ]]; then
+            top_files+=("$filepath")
+            seen_top_files[$filepath]=1
           fi
         fi
       done
