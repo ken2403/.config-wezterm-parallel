@@ -340,10 +340,10 @@ diffwatch() {
     echo ""
 
     # ファイルツリー表示（tree風）
-    if [[ $modified -gt 0 ]] || [[ $staged -gt 0 ]] || [[ $untracked -gt 0 ]]; then
-      echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
-      echo ""
+    echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
+    echo ""
 
+    if [[ $modified -gt 0 ]] || [[ $staged -gt 0 ]] || [[ $untracked -gt 0 ]]; then
       # 変更があるファイルを収集
       local -A changed_files=()
       while IFS=$'\t' read -r change_type file_status filepath; do
@@ -370,12 +370,22 @@ diffwatch() {
         fi
       done < <(git ls-tree HEAD 2>/dev/null)
 
-      # 変更があるディレクトリを特定
+      # 変更があるディレクトリを特定（untrackedディレクトリも追加）
       local -A dir_has_changes
+      local -A seen_top_dirs
+      for dir in "${top_dirs[@]}"; do
+        seen_top_dirs[$dir]=1
+      done
+
       for filepath in "${(@k)changed_files}"; do
         topdir=$(echo "$filepath" | cut -d'/' -f1)
         if [[ "$filepath" == */* ]]; then
           dir_has_changes[$topdir]=1
+          # untrackedディレクトリがtop_dirsにない場合は追加
+          if [[ -z "${seen_top_dirs[$topdir]}" ]]; then
+            top_dirs+=("$topdir")
+            seen_top_dirs[$topdir]=1
+          fi
         fi
       done
 
@@ -525,13 +535,56 @@ diffwatch() {
       done
 
       echo ""
+    else
+      # 差分がない場合でもroot構造を表示
+      local -a top_dirs=()
+      local -a top_files=()
+
+      while read -r line; do
+        type=$(echo "$line" | awk '{print $2}')
+        name=$(echo "$line" | awk '{print $4}')
+        if [[ "$type" == "tree" ]]; then
+          top_dirs+=("$name")
+        elif [[ "$type" == "blob" ]]; then
+          top_files+=("$name")
+        fi
+      done < <(git ls-tree HEAD 2>/dev/null)
+
+      echo "  ."
+      local total_items=$((${#top_dirs[@]} + ${#top_files[@]}))
+      local current=0
+
+      for dir in "${top_dirs[@]}"; do
+        current=$((current + 1))
+        if [[ $current -eq $total_items ]]; then
+          echo "  └─ ${dir}/"
+        else
+          echo "  ├─ ${dir}/"
+        fi
+      done
+
+      for file in "${top_files[@]}"; do
+        current=$((current + 1))
+        if [[ $current -eq $total_items ]]; then
+          echo "  └─ ${file}"
+        else
+          echo "  ├─ ${file}"
+        fi
+      done
+
+      echo ""
+      echo -e "  ${C_GRAY}No changes${C_RESET}"
+      echo ""
     fi
 
-    # 合計差分
+    # 合計差分（色付き）
     local total_stats=$(git diff --stat 2>/dev/null | tail -1)
     if [[ -n "$total_stats" ]]; then
       echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
-      echo -e "  ${C_DIM}${total_stats}${C_RESET}"
+      # insertions(+)を緑、deletions(-)を赤に
+      total_stats="${total_stats// insertion/ \\033[32minsertion\\033[0m}"
+      total_stats="${total_stats// deletion/ \\033[31mdeletion\\033[0m}"
+      echo -e "  ${total_stats}"
     fi
 
     # タイムスタンプ
@@ -628,10 +681,10 @@ branchdiff() {
     echo ""
 
     # ファイルツリー表示（tree風）
-    if [[ $changed_files -gt 0 ]] || [[ $untracked_count -gt 0 ]]; then
-      echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
-      echo ""
+    echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
+    echo ""
 
+    if [[ $changed_files -gt 0 ]] || [[ $untracked_count -gt 0 ]]; then
       # 変更があるファイルを収集
       local -A changed_files_map=()
       while IFS=$'\t' read -r file_status filepath; do
@@ -657,12 +710,22 @@ branchdiff() {
         fi
       done < <(git ls-tree HEAD 2>/dev/null)
 
-      # 変更があるディレクトリを特定
+      # 変更があるディレクトリを特定（untrackedディレクトリも追加）
       local -A dir_has_changes
+      local -A seen_top_dirs
+      for dir in "${top_dirs[@]}"; do
+        seen_top_dirs[$dir]=1
+      done
+
       for filepath in "${(@k)changed_files_map}"; do
         topdir=$(echo "$filepath" | cut -d'/' -f1)
         if [[ "$filepath" == */* ]]; then
           dir_has_changes[$topdir]=1
+          # untrackedディレクトリがtop_dirsにない場合は追加
+          if [[ -z "${seen_top_dirs[$topdir]}" ]]; then
+            top_dirs+=("$topdir")
+            seen_top_dirs[$topdir]=1
+          fi
         fi
       done
 
@@ -833,15 +896,55 @@ branchdiff() {
 
       echo ""
     else
+      # 差分がない場合でもroot構造を表示
+      local -a top_dirs=()
+      local -a top_files=()
+
+      while read -r line; do
+        type=$(echo "$line" | awk '{print $2}')
+        name=$(echo "$line" | awk '{print $4}')
+        if [[ "$type" == "tree" ]]; then
+          top_dirs+=("$name")
+        elif [[ "$type" == "blob" ]]; then
+          top_files+=("$name")
+        fi
+      done < <(git ls-tree HEAD 2>/dev/null)
+
+      echo "  ."
+      local total_items=$((${#top_dirs[@]} + ${#top_files[@]}))
+      local current=0
+
+      for dir in "${top_dirs[@]}"; do
+        current=$((current + 1))
+        if [[ $current -eq $total_items ]]; then
+          echo "  └─ ${dir}/"
+        else
+          echo "  ├─ ${dir}/"
+        fi
+      done
+
+      for file in "${top_files[@]}"; do
+        current=$((current + 1))
+        if [[ $current -eq $total_items ]]; then
+          echo "  └─ ${file}"
+        else
+          echo "  ├─ ${file}"
+        fi
+      done
+
+      echo ""
       echo -e "  ${C_GRAY}No changes from ${default_branch}${C_RESET}"
       echo ""
     fi
 
-    # 合計差分
+    # 合計差分（色付き）
     local total_stats=$(git diff --stat "${default_branch}...HEAD" 2>/dev/null | tail -1)
     if [[ -n "$total_stats" ]]; then
       echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
-      echo -e "  ${C_DIM}${total_stats}${C_RESET}"
+      # insertions(+)を緑、deletions(-)を赤に
+      total_stats="${total_stats// insertion/ \\033[32minsertion\\033[0m}"
+      total_stats="${total_stats// deletion/ \\033[31mdeletion\\033[0m}"
+      echo -e "  ${total_stats}"
     fi
 
     # タイムスタンプ
