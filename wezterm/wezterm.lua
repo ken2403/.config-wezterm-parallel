@@ -13,13 +13,13 @@ end
 -- =============================================================================
 wezterm.on("gui-startup", function(cmd)
   local tab, pane, window = mux.spawn_window(cmd or {})
-  -- 右側に35%のペインを作成（モニター用）
-  local monitor_pane = pane:split({ direction = "Right", size = 0.35 })
-  -- 右ペインの下半分を人間用に
-  monitor_pane:split({ direction = "Bottom", size = 0.5 })
+  -- 左側にモニターペイン (25%)
+  local monitor_pane = pane:split({ direction = "Left", size = 0.25 })
+  -- 右側（AI）の下20%に人間用ペイン
+  local human_pane = pane:split({ direction = "Bottom", size = 0.20 })
   -- モニターペインでdiffwatch起動
   monitor_pane:send_text("diffwatch\n")
-  -- フォーカスを左のメインペインに戻す
+  -- フォーカスをAIメインペインに戻す
   pane:activate()
 end)
 
@@ -165,13 +165,13 @@ config.keys = {
     mods = "CMD",
     action = wezterm.action_callback(function(window, pane)
       local tab, new_pane, _ = window:mux_window():spawn_tab({})
-      -- 右側にモニター用ペイン
-      local monitor_pane = new_pane:split({ direction = "Right", size = 0.35 })
-      -- 右下に人間用ペイン
-      monitor_pane:split({ direction = "Bottom", size = 0.5 })
+      -- 左側にモニターペイン (25%)
+      local monitor_pane = new_pane:split({ direction = "Left", size = 0.25 })
+      -- 右側（AI）の下20%に人間用ペイン
+      local human_pane = new_pane:split({ direction = "Bottom", size = 0.20 })
       -- モニターペインでdiffwatch起動
       monitor_pane:send_text("diffwatch\n")
-      -- フォーカスを左のメインペインに
+      -- フォーカスをAIメインペインに
       new_pane:activate()
     end),
   },

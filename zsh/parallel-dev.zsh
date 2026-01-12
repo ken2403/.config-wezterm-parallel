@@ -228,9 +228,9 @@ pdev() {
     # CLIコマンド間に少し待機（pane IDが安定するまで）
     sleep 0.2
 
-    # 右側にモニターペイン (35%)
+    # 左側にモニターペイン (25%)
     local monitor_pane_id
-    monitor_pane_id=$("$wezterm_cli" cli split-pane --right --percent 35 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null)
+    monitor_pane_id=$("$wezterm_cli" cli split-pane --left --percent 25 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null)
 
     if [[ -z "$monitor_pane_id" ]] || ! [[ "$monitor_pane_id" =~ ^[0-9]+$ ]]; then
       _warn "Failed to create monitor pane, tab created without split"
@@ -241,8 +241,8 @@ pdev() {
 
     sleep 0.1
 
-    # モニターペインの下に人間ペイン (50%)
-    "$wezterm_cli" cli split-pane --bottom --percent 50 --pane-id "$monitor_pane_id" --cwd "$worktree_path" 2>/dev/null
+    # AIペインの下に人間ペイン (20%)
+    "$wezterm_cli" cli split-pane --bottom --percent 20 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null
 
     sleep 0.1
 
@@ -264,7 +264,7 @@ pdev() {
 }
 
 # -----------------------------------------------------------------------------
-# diffwatch - 差分モニター
+# diffwatch - 差分モニター（Tree表示）
 # -----------------------------------------------------------------------------
 diffwatch() {
   local interval="${1:-2}"
@@ -292,22 +292,55 @@ diffwatch() {
     echo -e "  ${C_GRAY}?${C_RESET} Untracked: ${C_BOLD}${untracked}${C_RESET}"
     echo ""
 
-    # 差分詳細
+    # ファイルツリー表示
     if [[ $modified -gt 0 ]] || [[ $staged -gt 0 ]]; then
       echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
+      echo ""
 
-      # Modified files
-      git diff --name-only 2>/dev/null | while read file; do
-        local stats=$(git diff --numstat "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
-        echo -e "  ${C_YELLOW}●${C_RESET} ${file}"
-        echo -e "    ${C_GREEN}${stats%% *}${C_RESET} ${C_RED}${stats##* }${C_RESET}"
-      done
+      # Modified and staged files をまとめて取得
+      {
+        git diff --name-status 2>/dev/null | sed 's/^/modified /'
+        git diff --cached --name-status 2>/dev/null | sed 's/^/staged /'
+      } | sort -k2 | while read status_type status file; do
+        # ディレクトリ構造の描画
+        local indent=""
+        local depth=$(echo "$file" | tr -cd '/' | wc -c | tr -d ' ')
 
-      # Staged files
-      git diff --cached --name-only 2>/dev/null | while read file; do
-        local stats=$(git diff --cached --numstat "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
-        echo -e "  ${C_GREEN}◆${C_RESET} ${file} ${C_DIM}(staged)${C_RESET}"
-        echo -e "    ${C_GREEN}${stats%% *}${C_RESET} ${C_RED}${stats##* }${C_RESET}"
+        if [[ $depth -gt 0 ]]; then
+          indent=$(printf '%*s' $((depth * 2)) '' | tr ' ' '│')
+          indent="${indent%│}├─"
+        fi
+
+        # Status icon
+        local icon color
+        if [[ "$status_type" == "staged" ]]; then
+          icon="${C_GREEN}◆${C_RESET}"
+          color="${C_GREEN}"
+        else
+          icon="${C_YELLOW}●${C_RESET}"
+          color="${C_YELLOW}"
+        fi
+
+        # Modified type
+        case "$status" in
+          M) status_label="[mod]" ;;
+          A) status_label="[add]" ;;
+          D) status_label="[del]" ;;
+          R*) status_label="[ren]" ;;
+          *) status_label="[${status}]" ;;
+        esac
+
+        # Get file stats
+        local stats=""
+        if [[ "$status_type" == "staged" ]]; then
+          stats=$(git diff --cached --numstat "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
+        else
+          stats=$(git diff --numstat "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
+        fi
+
+        # Display filename with stats
+        local basename=$(basename "$file")
+        echo -e "  ${indent}${icon} ${color}${status_label}${C_RESET} ${basename} ${C_DIM}${stats}${C_RESET}"
       done
 
       echo ""
@@ -328,7 +361,6 @@ diffwatch() {
     sleep "$interval"
   done
 }
-
 # -----------------------------------------------------------------------------
 # pstatus - 全Worktree状態確認
 # -----------------------------------------------------------------------------
@@ -491,13 +523,14 @@ pdhelp() {
   📐 Pane Layout
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ┌────────────────────────┬─────────────────┐
-  │                        │  📊 MONITOR     │
-  │  🤖 AI PANE            │  (auto refresh) │
-  │  (Claude Code)         ├─────────────────┤
-  │                        │  🔧 HUMAN       │
-  │                        │  (your shell)   │
-  └────────────────────────┴─────────────────┘
+  ┌───────────┬────────────────────────────┐
+  │           │                            │
+  │ MONITOR   │  🤖 AI PANE (80%)          │
+  │ (Tree)    │  (Claude Code)             │
+  │ 25%       │                            │
+  │           ├────────────────────────────┤
+  │           │  🔧 HUMAN (20%)            │
+  └───────────┴────────────────────────────┘
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   🎨 Status Icons
