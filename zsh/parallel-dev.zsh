@@ -335,17 +335,14 @@ diffwatch() {
     echo -e "${C_GREEN}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
     echo -e "${C_GREEN}${C_BOLD}  📊 MONITOR │ ${branch}${C_RESET}"
     echo -e "${C_GREEN}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
-    echo ""
 
     # サマリー
     echo -e "  ${C_YELLOW}●${C_RESET} Modified:  ${C_BOLD}${modified}${C_RESET}"
     echo -e "  ${C_GREEN}◆${C_RESET} Staged:    ${C_BOLD}${staged}${C_RESET}"
     echo -e "  ${C_GRAY}?${C_RESET} Untracked: ${C_BOLD}${untracked}${C_RESET}"
-    echo ""
 
     # ファイルツリー表示（tree風）
     echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
-    echo ""
 
     if [[ $modified -gt 0 ]] || [[ $staged -gt 0 ]] || [[ $untracked -gt 0 ]]; then
       # 変更があるファイルを収集
@@ -554,8 +551,6 @@ diffwatch() {
           fi
         fi
       done
-
-      echo ""
     else
       # 差分がない場合でもroot構造を表示
       local -a top_dirs=()
@@ -592,10 +587,7 @@ diffwatch() {
           echo "  ├─ ${file}"
         fi
       done
-
-      echo ""
       echo -e "  ${C_GRAY}No changes${C_RESET}"
-      echo ""
     fi
 
     # 合計差分（色付き）
@@ -609,7 +601,6 @@ diffwatch() {
     fi
 
     # タイムスタンプ
-    echo ""
     echo -e "${C_GRAY}  🕐 $(date '+%H:%M:%S') │ ${interval}s refresh${C_RESET}"
     echo -e "${C_GRAY}  Press Ctrl+C to stop${C_RESET}"
 
@@ -649,10 +640,8 @@ branchdiff() {
       echo -e "${C_BLUE}${C_BOLD}  📊 BRANCH DIFF${C_RESET}"
       echo -e "${C_BLUE}${C_BOLD}  ${current_branch} ← ${default_branch}${C_RESET}"
       echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
-      echo ""
       echo -e "  ${C_GRAY}Currently on default branch${C_RESET}"
       echo -e "  ${C_GRAY}No branch comparison available${C_RESET}"
-      echo ""
       echo -e "${C_GRAY}  🕐 $(date '+%H:%M:%S') │ ${interval}s refresh${C_RESET}"
       echo -e "${C_GRAY}  Press Ctrl+C to stop${C_RESET}"
       sleep "$interval"
@@ -695,7 +684,6 @@ branchdiff() {
     echo -e "${C_BLUE}${C_BOLD}  📊 BRANCH DIFF${C_RESET}"
     echo -e "${C_BLUE}${C_BOLD}  ${current_branch} ← ${default_branch}${C_RESET}"
     echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
-    echo ""
 
     # サマリー
     echo -e "  ${C_BLUE}↑${C_RESET} Commits ahead: ${C_BOLD}${commits_ahead}${C_RESET}"
@@ -703,11 +691,9 @@ branchdiff() {
     if [[ $untracked_count -gt 0 ]]; then
       echo -e "  ${C_GRAY}?${C_RESET} Untracked:     ${C_BOLD}${untracked_count}${C_RESET}"
     fi
-    echo ""
 
     # ファイルツリー表示（tree風）
     echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
-    echo ""
 
     if [[ $changed_files -gt 0 ]] || [[ $untracked_count -gt 0 ]]; then
       # 変更があるファイルを収集
@@ -935,8 +921,6 @@ branchdiff() {
           fi
         fi
       done
-
-      echo ""
     else
       # 差分がない場合でもroot構造を表示
       local -a top_dirs=()
@@ -973,10 +957,7 @@ branchdiff() {
           echo "  ├─ ${file}"
         fi
       done
-
-      echo ""
       echo -e "  ${C_GRAY}No changes from ${default_branch}${C_RESET}"
-      echo ""
     fi
 
     # 合計差分（色付き）
@@ -990,9 +971,217 @@ branchdiff() {
     fi
 
     # タイムスタンプ
-    echo ""
     echo -e "${C_GRAY}  🕐 $(date '+%H:%M:%S') │ ${interval}s refresh${C_RESET}"
     echo -e "${C_GRAY}  Press Ctrl+C to stop${C_RESET}"
+
+    sleep "$interval"
+  done
+}
+
+# -----------------------------------------------------------------------------
+# allworktrees - 全Worktree状態モニター（コンパクト表示）
+# -----------------------------------------------------------------------------
+allworktrees() {
+  local interval="${1:-2}"
+  local prev_output=""
+
+  while true; do
+    # 全worktreeの状態を取得
+    local current_output=""
+    local git_root=$(_git_root)
+
+    if [[ -z "$git_root" ]]; then
+      current_output="not_in_git"
+    else
+      local worktree_base=$(_worktree_base)
+      local default_branch=$(_default_branch)
+
+      # 各worktreeの状態を収集
+      while IFS=$'\t' read -r worktree_path branch; do
+        [[ -z "$worktree_path" ]] && continue
+
+        cd "$worktree_path" 2>/dev/null || continue
+
+        local modified=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
+        local staged=$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
+        local untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+        # デフォルトブランチの場合
+        if [[ "$branch" == "$default_branch" ]]; then
+          current_output+="${branch}|default|0|0|${modified}|${staged}|${untracked}|;"
+        else
+          # ブランチとデフォルトブランチの差分を取得
+          local commits_ahead=$(git rev-list --count "${default_branch}..HEAD" 2>/dev/null || echo "0")
+          local changed_files=$(git diff --name-only "${default_branch}...HEAD" 2>/dev/null | wc -l | tr -d ' ')
+
+          # ファイル名リスト（最初の3つのみ）
+          local file_list=$(git diff --name-only "${default_branch}...HEAD" 2>/dev/null | head -3 | paste -sd',' -)
+
+          current_output+="${branch}|feature|${commits_ahead}|${changed_files}|${modified}|${staged}|${untracked}|${file_list};"
+        fi
+      done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree / {worktree=$2} /^branch / {sub("refs/heads/", "", $2); print worktree "\t" $2}')
+
+      cd "$git_root" 2>/dev/null
+    fi
+
+    # 前回と同じなら再描画をスキップ
+    if [[ "$current_output" == "$prev_output" ]]; then
+      sleep "$interval"
+      continue
+    fi
+
+    prev_output="$current_output"
+
+    # カーソルをホームに移動して画面クリア
+    printf '\033[H\033[J'
+
+    # ヘッダー（コンパクト）
+    echo -e "${C_GREEN}${C_BOLD}━━━ ALL WORKTREES ━━━${C_RESET}"
+    echo ""
+
+    if [[ "$current_output" == "not_in_git" ]]; then
+      echo -e "  ${C_RED}✗${C_RESET} ${C_GRAY}Not in a git repository${C_RESET}"
+      echo ""
+    elif [[ -z "$current_output" ]]; then
+      echo -e "  ${C_YELLOW}!${C_RESET} ${C_BOLD}No worktrees found${C_RESET}"
+      echo ""
+      echo -e "  ${C_GRAY}Only the main worktree exists${C_RESET}"
+      echo -e "  ${C_GRAY}Create a new parallel worktree with:${C_RESET}"
+      echo -e "  ${C_GREEN}  pdev <task-name>${C_RESET}"
+      echo ""
+    else
+      local default_branch=$(_default_branch)
+      local has_feature_branches=false
+
+      # 各worktreeの状態を表示
+      while IFS=$'\t' read -r worktree_path branch; do
+        [[ -z "$worktree_path" ]] && continue
+
+        cd "$worktree_path" 2>/dev/null || continue
+
+        local modified=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
+        local staged=$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
+        local untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+        # デフォルトブランチの場合
+        if [[ "$branch" == "$default_branch" ]]; then
+          echo -e "${C_BOLD}⭐ ${branch}${C_RESET} ${C_GRAY}(main worktree)${C_RESET}"
+
+          # ワーキング差分がある場合のみ表示
+          if [[ $modified -gt 0 ]] || [[ $staged -gt 0 ]] || [[ $untracked -gt 0 ]]; then
+            echo -e "  ${C_YELLOW}●${modified}${C_RESET} ${C_GREEN}◆${staged}${C_RESET} ${C_GRAY}?${untracked}${C_RESET}"
+          else
+            echo -e "  ${C_GREEN}✓${C_RESET} ${C_GRAY}clean${C_RESET}"
+          fi
+
+          echo ""
+          continue
+        fi
+
+        has_feature_branches=true
+
+        local commits_ahead=$(git rev-list --count "${default_branch}..HEAD" 2>/dev/null || echo "0")
+        local changed_files=$(git diff --name-only "${default_branch}...HEAD" 2>/dev/null | wc -l | tr -d ' ')
+
+        # ブランチ名（短縮）
+        local short_branch=$(echo "$branch" | sed 's/^task\///')
+
+        # ステータス表示（コンパクト）
+        echo -e "${C_BOLD}${short_branch}${C_RESET} ${C_BLUE}↑${commits_ahead}${C_RESET} ${C_YELLOW}≠${changed_files}${C_RESET}"
+
+        # ワーキング差分がある場合
+        if [[ $modified -gt 0 ]] || [[ $staged -gt 0 ]] || [[ $untracked -gt 0 ]]; then
+          echo -e "  ${C_YELLOW}●${modified}${C_RESET} ${C_GREEN}◆${staged}${C_RESET} ${C_GRAY}?${untracked}${C_RESET}"
+        fi
+
+        # 変更ファイル（上位5つのみ、tree形式、差分付き）
+        if [[ $changed_files -gt 0 ]]; then
+          local file_count=0
+          local max_files=5
+
+          while IFS=$'\t' read -r file_status filepath; do
+            [[ -z "$filepath" ]] && continue
+            file_count=$((file_count + 1))
+            [[ $file_count -gt $max_files ]] && break
+
+            local filename=$(basename "$filepath")
+            local dirname=$(dirname "$filepath")
+
+            # Status icon and color
+            local icon=""
+            local color=""
+            local status_label=""
+
+            case "$file_status" in
+              M)
+                icon="${C_YELLOW}●${C_RESET}"
+                color="${C_YELLOW}"
+                status_label="[mod]"
+                ;;
+              A)
+                icon="${C_GREEN}◆${C_RESET}"
+                color="${C_GREEN}"
+                status_label="[add]"
+                ;;
+              D)
+                icon="${C_RED}●${C_RESET}"
+                color="${C_RED}"
+                status_label="[del]"
+                ;;
+              R*)
+                icon="${C_BLUE}●${C_RESET}"
+                color="${C_BLUE}"
+                status_label="[ren]"
+                ;;
+              *)
+                icon="${C_YELLOW}●${C_RESET}"
+                color="${C_YELLOW}"
+                status_label="[${file_status}]"
+                ;;
+            esac
+
+            # Get stats
+            local stats=""
+            if [[ "$file_status" == "D" ]]; then
+              stats=""
+            else
+              stats=$(git diff --numstat "${default_branch}...HEAD" -- "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
+              stats=$(_colorize_stats "$stats")
+            fi
+
+            # Display
+            local display_path=""
+            if [[ "$dirname" != "." ]]; then
+              display_path="${dirname}/${filename}"
+            else
+              display_path="${filename}"
+            fi
+
+            echo -e "  ${C_GRAY}├─${C_RESET} ${display_path} ${icon} ${color}${status_label}${C_RESET} ${stats}"
+          done < <(git diff --name-status "${default_branch}...HEAD" 2>/dev/null | head -${max_files})
+
+          # 残りのファイル数を表示
+          if [[ $changed_files -gt $max_files ]]; then
+            local remaining=$((changed_files - max_files))
+            echo -e "  ${C_GRAY}└─ ...${remaining} more${C_RESET}"
+          fi
+        fi
+
+        echo ""
+      done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree / {worktree=$2} /^branch / {sub("refs/heads/", "", $2); print worktree "\t" $2}')
+
+      # feature branchがない場合のメッセージ
+      if [[ "$has_feature_branches" == "false" ]]; then
+        echo -e "  ${C_GRAY}No feature branches yet${C_RESET}"
+        echo -e "  ${C_GRAY}Create a parallel worktree: ${C_GREEN}pdev <task-name>${C_RESET}"
+        echo ""
+      fi
+
+      cd "$git_root" 2>/dev/null
+    fi
+
+    # タイムスタンプ（コンパクト）
+    echo -e "${C_GRAY}🕐 $(date '+%H:%M:%S')${C_RESET}"
 
     sleep "$interval"
   done
