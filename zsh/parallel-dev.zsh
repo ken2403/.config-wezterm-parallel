@@ -594,9 +594,9 @@ diffwatch() {
     local total_stats=$(git diff --stat 2>/dev/null | tail -1)
     if [[ -n "$total_stats" ]]; then
       echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
-      # insertions(+)を緑、deletions(-)を赤に
-      total_stats="${total_stats// insertion/ \\033[32minsertion\\033[0m}"
-      total_stats="${total_stats// deletion/ \\033[31mdeletion\\033[0m}"
+      # insertions(+)の数字とテキストを緑に、deletions(-)の数字とテキストを赤に
+      total_stats=$(echo "$total_stats" | sed -E 's/([0-9]+) insertion/\x1b[32m\1 insertion\x1b[0m/g')
+      total_stats=$(echo "$total_stats" | sed -E 's/([0-9]+) deletion/\x1b[31m\1 deletion\x1b[0m/g')
       echo -e "  ${total_stats}"
     fi
 
@@ -967,9 +967,9 @@ branchdiff() {
     local total_stats=$(git diff --stat "${default_branch}...HEAD" 2>/dev/null | tail -1)
     if [[ -n "$total_stats" ]]; then
       echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
-      # insertions(+)を緑、deletions(-)を赤に
-      total_stats="${total_stats// insertion/ \\033[32minsertion\\033[0m}"
-      total_stats="${total_stats// deletion/ \\033[31mdeletion\\033[0m}"
+      # insertions(+)の数字とテキストを緑に、deletions(-)の数字とテキストを赤に
+      total_stats=$(echo "$total_stats" | sed -E 's/([0-9]+) insertion/\x1b[32m\1 insertion\x1b[0m/g')
+      total_stats=$(echo "$total_stats" | sed -E 's/([0-9]+) deletion/\x1b[31m\1 deletion\x1b[0m/g')
       echo -e "  ${total_stats}"
     fi
 
