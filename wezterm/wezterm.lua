@@ -14,11 +14,15 @@ end
 wezterm.on("gui-startup", function(cmd)
   local tab, pane, window = mux.spawn_window(cmd or {})
   -- 左側にモニターペイン (25%)
-  local monitor_pane = pane:split({ direction = "Left", size = 0.25 })
+  local monitor_top = pane:split({ direction = "Left", size = 0.25 })
+  -- モニターペインを上下に分割
+  local monitor_bottom = monitor_top:split({ direction = "Bottom", size = 0.5 })
   -- 右側（AI）の下20%に人間用ペイン
   local human_pane = pane:split({ direction = "Bottom", size = 0.20 })
-  -- モニターペインでdiffwatch起動
-  monitor_pane:send_text("diffwatch\n")
+  -- 上のモニターペインでdiffwatch起動（ワーキング差分）
+  monitor_top:send_text("diffwatch\n")
+  -- 下のモニターペインでbranchdiff起動（ブランチ差分）
+  monitor_bottom:send_text("branchdiff\n")
   -- フォーカスをAIメインペインに戻す
   pane:activate()
 end)
@@ -166,11 +170,15 @@ config.keys = {
     action = wezterm.action_callback(function(window, pane)
       local tab, new_pane, _ = window:mux_window():spawn_tab({})
       -- 左側にモニターペイン (25%)
-      local monitor_pane = new_pane:split({ direction = "Left", size = 0.25 })
+      local monitor_top = new_pane:split({ direction = "Left", size = 0.25 })
+      -- モニターペインを上下に分割
+      local monitor_bottom = monitor_top:split({ direction = "Bottom", size = 0.5 })
       -- 右側（AI）の下20%に人間用ペイン
       local human_pane = new_pane:split({ direction = "Bottom", size = 0.20 })
-      -- モニターペインでdiffwatch起動
-      monitor_pane:send_text("diffwatch\n")
+      -- 上のモニターペインでdiffwatch起動
+      monitor_top:send_text("diffwatch\n")
+      -- 下のモニターペインでbranchdiff起動
+      monitor_bottom:send_text("branchdiff\n")
       -- フォーカスをAIメインペインに
       new_pane:activate()
     end),
@@ -218,10 +226,11 @@ config.keys = {
   { key = "k", mods = "CMD|OPT", action = act.ActivatePaneDirection("Up") },
   { key = "j", mods = "CMD|OPT", action = act.ActivatePaneDirection("Down") },
 
-  -- ペイン番号で直接移動 (Cmd+Opt+1/2/3)
+  -- ペイン番号で直接移動 (Cmd+Opt+1-4)
   { key = "1", mods = "CMD|OPT", action = act.ActivatePaneByIndex(0) },  -- AI Pane
-  { key = "2", mods = "CMD|OPT", action = act.ActivatePaneByIndex(1) },  -- Monitor
-  { key = "3", mods = "CMD|OPT", action = act.ActivatePaneByIndex(2) },  -- Human
+  { key = "2", mods = "CMD|OPT", action = act.ActivatePaneByIndex(1) },  -- Monitor (working diff)
+  { key = "3", mods = "CMD|OPT", action = act.ActivatePaneByIndex(2) },  -- Monitor (branch diff)
+  { key = "4", mods = "CMD|OPT", action = act.ActivatePaneByIndex(3) },  -- Human
 
   -- ペインサイズ調整
   { key = "LeftArrow", mods = "CMD|SHIFT", action = act.AdjustPaneSize({ "Left", 5 }) },

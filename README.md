@@ -6,8 +6,8 @@ AI-Agent並列開発をサポートするWezTerm + zsh設定
 
 ## 特徴
 
-- **L字型3ペイン構成**: 起動時・新規タブ作成時に自動で3ペイン構成
-- **diffwatch自動起動**: モニターペインでGit差分を自動監視
+- **4ペイン構成**: 起動時・新規タブ作成時に自動で4ペイン構成
+- **二段階モニタリング**: ワーキング差分とブランチ差分を同時監視
 - **ライトグリーンテーマ**: 目に優しく見やすいカラースキーム
 - **Git Worktree統合**: タスクごとに独立したWorktreeを自動作成
 
@@ -15,16 +15,18 @@ AI-Agent並列開発をサポートするWezTerm + zsh設定
 
 ```
 ┌───────────┬────────────────────────────┐
-│           │                            │
-│ MONITOR   │  🤖 AI PANE (80%)          │
-│ (Tree)    │  (Claude Code)             │
-│ 25%       │                            │
-│           ├────────────────────────────┤
+│ WORKING   │                            │
+│ (diffwatch)│  🤖 AI PANE (80%)          │
+├───────────┤  (Claude Code)             │
+│ BRANCH    │                            │
+│(branchdiff)├───────────────────────────┤
 │           │  🔧 HUMAN (20%)            │
 └───────────┴────────────────────────────┘
+    25%              75%
 ```
 
-- **Monitor (左 25%)**: git差分をツリー形式で表示、ファイル別の変更行数を自動監視
+- **Working Monitor (左上 25%)**: ワーキングディレクトリの差分をツリー形式で自動監視
+- **Branch Monitor (左下 25%)**: デフォルトブランチとの差分をツリー形式で自動監視
 - **AI Pane (右上 80%)**: Claude Codeのメイン作業エリア
 - **Human Pane (右下 20%)**: 手動コマンド実行用
 
@@ -72,9 +74,10 @@ source ./install.sh
 
 | コマンド | 説明 |
 |----------|------|
-| `pdev <task>` | 並列開発タブ作成（3ペイン + diffwatch） |
+| `pdev <task>` | 並列開発タブ作成（4ペイン + 2モニター） |
 | `pstatus` | 全Worktree状態確認 |
-| `diffwatch [interval]` | 差分モニター（デフォルト2秒） |
+| `diffwatch [interval]` | ワーキング差分モニター（デフォルト2秒） |
+| `branchdiff [interval]` | ブランチ差分モニター（デフォルト2秒） |
 | `pmerge <task>` | タスクをマージ |
 | `pclean [task]` | Worktree削除（fzf選択可） |
 | `pdhelp` | 並列開発ヘルプ |
@@ -86,7 +89,9 @@ source ./install.sh
 cd /path/to/git-repo
 pdev feat-auth-login
 # → ../repo-feat-auth-login に feat/auth/login ブランチ作成
-# → 新タブで3ペイン構成が開く（diffwatch自動起動）
+# → 新タブで4ペイン構成が開く
+# → 左上: ワーキング差分監視（diffwatch自動起動）
+# → 左下: ブランチ差分監視（branchdiff自動起動）
 ```
 
 ## ショートカット
@@ -95,7 +100,7 @@ pdev feat-auth-login
 
 | キー | 機能 |
 |------|------|
-| `Cmd+T` | 新タブ（3ペイン + diffwatch） |
+| `Cmd+T` | 新タブ（4ペイン + 2モニター） |
 | `Cmd+Shift+T` | シンプルな新タブ（分割なし） |
 | `Cmd+W` | タブを閉じる |
 | `Cmd+1-9` | タブ番号で移動 |
@@ -110,7 +115,7 @@ pdev feat-auth-login
 | `Cmd+Shift+D` | 横分割（上下に分ける） |
 | `Cmd+Opt+矢印` | ペイン移動 |
 | `Cmd+Opt+h/j/k/l` | Vim風ペイン移動 |
-| `Cmd+Opt+1/2/3` | ペイン番号で直接移動（1:AI, 2:Monitor, 3:Human） |
+| `Cmd+Opt+1/2/3/4` | ペイン番号で直接移動（1:AI, 2:Working, 3:Branch, 4:Human） |
 | `Cmd+Z` | ペインズーム（トグル） |
 | `Cmd+Shift+W` | ペインを閉じる |
 | `Cmd+Opt+0` | ペインを入れ替え |

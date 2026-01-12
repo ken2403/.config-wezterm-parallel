@@ -229,10 +229,10 @@ pdev() {
     sleep 0.2
 
     # 左側にモニターペイン (25%)
-    local monitor_pane_id
-    monitor_pane_id=$("$wezterm_cli" cli split-pane --left --percent 25 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null)
+    local monitor_top_id
+    monitor_top_id=$("$wezterm_cli" cli split-pane --left --percent 25 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null)
 
-    if [[ -z "$monitor_pane_id" ]] || ! [[ "$monitor_pane_id" =~ ^[0-9]+$ ]]; then
+    if [[ -z "$monitor_top_id" ]] || ! [[ "$monitor_top_id" =~ ^[0-9]+$ ]]; then
       _warn "Failed to create monitor pane, tab created without split"
       "$wezterm_cli" cli activate-pane --pane-id "$main_pane_id" 2>/dev/null
       _success "New tab created (single pane)"
@@ -241,13 +241,24 @@ pdev() {
 
     sleep 0.1
 
+    # モニターペインを上下に分割
+    local monitor_bottom_id
+    monitor_bottom_id=$("$wezterm_cli" cli split-pane --bottom --percent 50 --pane-id "$monitor_top_id" --cwd "$worktree_path" 2>/dev/null)
+
+    sleep 0.1
+
     # AIペインの下に人間ペイン (20%)
     "$wezterm_cli" cli split-pane --bottom --percent 20 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null
 
     sleep 0.1
 
-    # モニターペインでdiffwatchコマンドを実行
-    "$wezterm_cli" cli send-text --pane-id "$monitor_pane_id" --no-paste "diffwatch"$'\n' 2>/dev/null
+    # 上のモニターペインでdiffwatchコマンドを実行
+    "$wezterm_cli" cli send-text --pane-id "$monitor_top_id" --no-paste "diffwatch"$'\n' 2>/dev/null
+
+    sleep 0.1
+
+    # 下のモニターペインでbranchdiffコマンドを実行
+    "$wezterm_cli" cli send-text --pane-id "$monitor_bottom_id" --no-paste "branchdiff"$'\n' 2>/dev/null
 
     # メインペインにフォーカス
     "$wezterm_cli" cli activate-pane --pane-id "$main_pane_id" 2>/dev/null
@@ -361,6 +372,121 @@ diffwatch() {
     sleep "$interval"
   done
 }
+
+# -----------------------------------------------------------------------------
+# branchdiff - ブランチ差分モニター（デフォルトブランチとの比較）
+# -----------------------------------------------------------------------------
+branchdiff() {
+  local interval="${1:-2}"
+
+  while true; do
+    clear
+
+    local current_branch=$(git branch --show-current 2>/dev/null || echo "unknown")
+    local default_branch=$(_default_branch)
+
+    # ヘッダー
+    echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
+    echo -e "${C_BLUE}${C_BOLD}  📊 BRANCH DIFF${C_RESET}"
+    echo -e "${C_BLUE}${C_BOLD}  ${current_branch} ← ${default_branch}${C_RESET}"
+    echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
+    echo ""
+
+    # デフォルトブランチと同じならメッセージ表示
+    if [[ "$current_branch" == "$default_branch" ]]; then
+      echo -e "  ${C_GRAY}Currently on default branch${C_RESET}"
+      echo -e "  ${C_GRAY}No branch comparison available${C_RESET}"
+      echo ""
+      echo -e "${C_GRAY}  🕐 $(date '+%H:%M:%S') │ ${interval}s refresh${C_RESET}"
+      echo -e "${C_GRAY}  Press Ctrl+C to stop${C_RESET}"
+      sleep "$interval"
+      continue
+    fi
+
+    # ブランチ間の差分ファイル数を取得
+    local changed_files=$(git diff --name-only "${default_branch}...HEAD" 2>/dev/null | wc -l | tr -d ' ')
+    local commits_ahead=$(git rev-list --count "${default_branch}..HEAD" 2>/dev/null || echo "0")
+
+    # サマリー
+    echo -e "  ${C_BLUE}↑${C_RESET} Commits ahead: ${C_BOLD}${commits_ahead}${C_RESET}"
+    echo -e "  ${C_YELLOW}≠${C_RESET} Changed files: ${C_BOLD}${changed_files}${C_RESET}"
+    echo ""
+
+    # ファイルツリー表示
+    if [[ $changed_files -gt 0 ]]; then
+      echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
+      echo ""
+
+      git diff --name-status "${default_branch}...HEAD" 2>/dev/null | while read status file; do
+        # ディレクトリ構造の描画
+        local indent=""
+        local depth=$(echo "$file" | tr -cd '/' | wc -c | tr -d ' ')
+
+        if [[ $depth -gt 0 ]]; then
+          indent=$(printf '%*s' $((depth * 2)) '' | tr ' ' '│')
+          indent="${indent%│}├─"
+        fi
+
+        # Status icon and color
+        local icon color status_label
+        case "$status" in
+          M)
+            icon="${C_YELLOW}●${C_RESET}"
+            color="${C_YELLOW}"
+            status_label="[mod]"
+            ;;
+          A)
+            icon="${C_GREEN}+${C_RESET}"
+            color="${C_GREEN}"
+            status_label="[add]"
+            ;;
+          D)
+            icon="${C_RED}−${C_RESET}"
+            color="${C_RED}"
+            status_label="[del]"
+            ;;
+          R*)
+            icon="${C_BLUE}→${C_RESET}"
+            color="${C_BLUE}"
+            status_label="[ren]"
+            ;;
+          *)
+            icon="${C_GRAY}?${C_RESET}"
+            color="${C_GRAY}"
+            status_label="[${status}]"
+            ;;
+        esac
+
+        # Get file stats
+        local stats=$(git diff --numstat "${default_branch}...HEAD" -- "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
+
+        # Display filename with stats
+        local basename=$(basename "$file")
+        echo -e "  ${indent}${icon} ${color}${status_label}${C_RESET} ${basename} ${C_DIM}${stats}${C_RESET}"
+      done
+
+      echo ""
+    else
+      echo -e "  ${C_GRAY}No changes from ${default_branch}${C_RESET}"
+      echo ""
+    fi
+
+    # 合計差分
+    local total_stats=$(git diff --stat "${default_branch}...HEAD" 2>/dev/null | tail -1)
+    if [[ -n "$total_stats" ]]; then
+      echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
+      echo -e "  ${C_DIM}${total_stats}${C_RESET}"
+    fi
+
+    # タイムスタンプ
+    echo ""
+    echo -e "${C_GRAY}  🕐 $(date '+%H:%M:%S') │ ${interval}s refresh${C_RESET}"
+    echo -e "${C_GRAY}  Press Ctrl+C to stop${C_RESET}"
+
+    sleep "$interval"
+  done
+}
+
 # -----------------------------------------------------------------------------
 # pstatus - 全Worktree状態確認
 # -----------------------------------------------------------------------------
@@ -509,7 +635,8 @@ pdhelp() {
 
   【状態確認】
     pstatus                   全Worktreeの状態一覧
-    diffwatch [interval]      差分モニター (default: 2s)
+    diffwatch [interval]      ワーキング差分モニター (default: 2s)
+    branchdiff [interval]     ブランチ差分モニター (default: 2s)
 
   【マージ・削除】
     pmerge <task> [target]    タスクをマージ
@@ -524,13 +651,14 @@ pdhelp() {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ┌───────────┬────────────────────────────┐
-  │           │                            │
-  │ MONITOR   │  🤖 AI PANE (80%)          │
-  │ (Tree)    │  (Claude Code)             │
-  │ 25%       │                            │
-  │           ├────────────────────────────┤
+  │ WORKING   │                            │
+  │ (diffwatch)│  🤖 AI PANE (80%)          │
+  ├───────────┤  (Claude Code)             │
+  │ BRANCH    │                            │
+  │(branchdiff)├───────────────────────────┤
   │           │  🔧 HUMAN (20%)            │
   └───────────┴────────────────────────────┘
+      25%              75%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   🎨 Status Icons
