@@ -349,11 +349,11 @@ diffwatch() {
       while IFS=$'\t' read -r change_type file_status filepath; do
         # パスの正規化（先頭の./を削除）
         filepath="${filepath#./}"
-        changed_files[$filepath]="${change_type}|${file_status}"
+        [[ -n "$filepath" ]] && changed_files[$filepath]="${change_type}|${file_status}"
       done < <({
-        git diff --name-status 2>/dev/null | sed 's/^/modified\t/'
-        git diff --cached --name-status 2>/dev/null | sed 's/^/staged\t/'
-        git ls-files --others --exclude-standard 2>/dev/null | sed 's/^/untracked\tU\t/'
+        git diff --name-status 2>/dev/null | awk '{print "modified\t" $1 "\t" $2}'
+        git diff --cached --name-status 2>/dev/null | awk '{print "staged\t" $1 "\t" $2}'
+        git ls-files --others --exclude-standard 2>/dev/null | awk '{print "untracked\tU\t" $0}'
       })
 
       # トップレベルの構造を取得（ディレクトリとファイル）
@@ -704,10 +704,10 @@ branchdiff() {
       while IFS=$'\t' read -r file_status filepath; do
         # パスの正規化（先頭の./を削除）
         filepath="${filepath#./}"
-        changed_files_map[$filepath]="$file_status"
+        [[ -n "$filepath" ]] && changed_files_map[$filepath]="$file_status"
       done < <({
         git diff --name-status "${default_branch}...HEAD" 2>/dev/null
-        git ls-files --others --exclude-standard 2>/dev/null | sed 's/^/U\t/'
+        git ls-files --others --exclude-standard 2>/dev/null | awk '{print "U\t" $0}'
       })
 
       # トップレベルの構造を取得（ディレクトリとファイル）
