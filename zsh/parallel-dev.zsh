@@ -281,7 +281,8 @@ diffwatch() {
   local interval="${1:-2}"
 
   while true; do
-    clear
+    # カーソルをホームに移動して画面クリア（チラつき防止）
+    printf '\033[H\033[J'
 
     local branch=$(git branch --show-current 2>/dev/null || echo "unknown")
     local task=$(_branch_to_task "$branch")
@@ -392,7 +393,8 @@ branchdiff() {
   local interval="${1:-2}"
 
   while true; do
-    clear
+    # カーソルをホームに移動して画面クリア（チラつき防止）
+    printf '\033[H\033[J'
 
     local current_branch=$(git branch --show-current 2>/dev/null || echo "unknown")
     local default_branch=$(_default_branch)
