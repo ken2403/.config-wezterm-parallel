@@ -315,9 +315,9 @@ diffwatch() {
     current_output+="|"
     # untrackedファイルはタイムスタンプも含めて変更検知
     current_output+=$(git ls-files --others --exclude-standard 2>/dev/null | while read -r f; do
-      stat -f "%m" "$f" 2>/dev/null || echo "0"
-      echo "$f"
-    done | paste -sd':' - | sort)
+      mtime=$(stat -f "%m" "$f" 2>/dev/null || echo "0")
+      echo "${mtime}:${f}"
+    done | sort)
 
     # 前回と同じなら再描画をスキップ
     if [[ "$current_output" == "$prev_output" ]]; then
@@ -674,9 +674,9 @@ branchdiff() {
     current_output+="|"
     # untrackedファイルはタイムスタンプも含めて変更検知
     current_output+=$(git ls-files --others --exclude-standard 2>/dev/null | while read -r f; do
-      stat -f "%m" "$f" 2>/dev/null || echo "0"
-      echo "$f"
-    done | paste -sd':' - | sort)
+      mtime=$(stat -f "%m" "$f" 2>/dev/null || echo "0")
+      echo "${mtime}:${f}"
+    done | sort)
 
     # 前回と同じなら再描画をスキップ
     if [[ "$current_output" == "$prev_output" ]]; then
