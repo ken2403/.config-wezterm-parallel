@@ -279,24 +279,45 @@ pdev() {
 # -----------------------------------------------------------------------------
 diffwatch() {
   local interval="${1:-2}"
+  local prev_output=""
 
   while true; do
-    # カーソルをホームに移動して画面クリア（チラつき防止）
-    printf '\033[H\033[J'
-
+    # 現在の状態を取得
     local branch=$(git branch --show-current 2>/dev/null || echo "unknown")
     local task=$(_branch_to_task "$branch")
+    local modified=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
+    local staged=$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
+    local untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+    # 現在の出力内容を生成（変数に保存）
+    local current_output=""
+    current_output+="${branch}|${modified}|${staged}|${untracked}"
+
+    # 差分リストを取得して状態に追加
+    current_output+="|"
+    current_output+=$(git diff --name-status 2>/dev/null | sort)
+    current_output+="|"
+    current_output+=$(git diff --cached --name-status 2>/dev/null | sort)
+    current_output+="|"
+    current_output+=$(git ls-files --others --exclude-standard 2>/dev/null | sort)
+
+    # 前回と同じなら再描画をスキップ
+    if [[ "$current_output" == "$prev_output" ]]; then
+      sleep "$interval"
+      continue
+    fi
+
+    # 変更があった場合のみ再描画
+    prev_output="$current_output"
+
+    # カーソルをホームに移動して画面クリア
+    printf '\033[H\033[J'
 
     # ヘッダー
     echo -e "${C_GREEN}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
     echo -e "${C_GREEN}${C_BOLD}  📊 MONITOR │ ${branch}${C_RESET}"
     echo -e "${C_GREEN}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
     echo ""
-
-    # ステータス取得
-    local modified=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
-    local staged=$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
-    local untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
 
     # サマリー
     echo -e "  ${C_YELLOW}●${C_RESET} Modified:  ${C_BOLD}${modified}${C_RESET}"
@@ -391,23 +412,34 @@ diffwatch() {
 # -----------------------------------------------------------------------------
 branchdiff() {
   local interval="${1:-2}"
+  local prev_output=""
 
   while true; do
-    # カーソルをホームに移動して画面クリア（チラつき防止）
-    printf '\033[H\033[J'
-
+    # 現在の状態を取得
     local current_branch=$(git branch --show-current 2>/dev/null || echo "unknown")
     local default_branch=$(_default_branch)
 
-    # ヘッダー
-    echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
-    echo -e "${C_BLUE}${C_BOLD}  📊 BRANCH DIFF${C_RESET}"
-    echo -e "${C_BLUE}${C_BOLD}  ${current_branch} ← ${default_branch}${C_RESET}"
-    echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
-    echo ""
-
-    # デフォルトブランチと同じならメッセージ表示
+    # デフォルトブランチと同じ場合の処理
     if [[ "$current_branch" == "$default_branch" ]]; then
+      local current_output="default_branch"
+
+      # 前回と同じならスキップ
+      if [[ "$current_output" == "$prev_output" ]]; then
+        sleep "$interval"
+        continue
+      fi
+
+      prev_output="$current_output"
+
+      # カーソルをホームに移動して画面クリア
+      printf '\033[H\033[J'
+
+      # ヘッダー
+      echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
+      echo -e "${C_BLUE}${C_BOLD}  📊 BRANCH DIFF${C_RESET}"
+      echo -e "${C_BLUE}${C_BOLD}  ${current_branch} ← ${default_branch}${C_RESET}"
+      echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
+      echo ""
       echo -e "  ${C_GRAY}Currently on default branch${C_RESET}"
       echo -e "  ${C_GRAY}No branch comparison available${C_RESET}"
       echo ""
@@ -421,6 +453,35 @@ branchdiff() {
     local changed_files=$(git diff --name-only "${default_branch}...HEAD" 2>/dev/null | wc -l | tr -d ' ')
     local commits_ahead=$(git rev-list --count "${default_branch}..HEAD" 2>/dev/null || echo "0")
     local untracked_count=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+    # 現在の出力内容を生成
+    local current_output=""
+    current_output+="${current_branch}|${default_branch}|${changed_files}|${commits_ahead}|${untracked_count}"
+
+    # 差分リストを取得して状態に追加
+    current_output+="|"
+    current_output+=$(git diff --name-status "${default_branch}...HEAD" 2>/dev/null | sort)
+    current_output+="|"
+    current_output+=$(git ls-files --others --exclude-standard 2>/dev/null | sort)
+
+    # 前回と同じなら再描画をスキップ
+    if [[ "$current_output" == "$prev_output" ]]; then
+      sleep "$interval"
+      continue
+    fi
+
+    # 変更があった場合のみ再描画
+    prev_output="$current_output"
+
+    # カーソルをホームに移動して画面クリア
+    printf '\033[H\033[J'
+
+    # ヘッダー
+    echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
+    echo -e "${C_BLUE}${C_BOLD}  📊 BRANCH DIFF${C_RESET}"
+    echo -e "${C_BLUE}${C_BOLD}  ${current_branch} ← ${default_branch}${C_RESET}"
+    echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
+    echo ""
 
     # サマリー
     echo -e "  ${C_BLUE}↑${C_RESET} Commits ahead: ${C_BOLD}${commits_ahead}${C_RESET}"
