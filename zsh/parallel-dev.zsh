@@ -115,6 +115,20 @@ _info() {
   echo -e "${C_BLUE}  ▸${C_RESET} $1"
 }
 
+# statsの色付け（+は緑、-は赤）
+_colorize_stats() {
+  local stats="$1"
+  if [[ -z "$stats" ]]; then
+    echo ""
+    return
+  fi
+  # +数字を緑、-数字を赤で色付け
+  stats="${stats//+/\\033[32m+}"
+  stats="${stats//-/\\033[31m-}"
+  stats="${stats}\\033[0m"
+  echo -e "$stats"
+}
+
 # デフォルトブランチを取得
 _default_branch() {
   # リモートのHEADから取得を試みる
@@ -331,7 +345,7 @@ diffwatch() {
       echo ""
 
       # 変更があるファイルを収集
-      declare -A changed_files
+      local -A changed_files=()
       while IFS=$'\t' read -r change_type file_status filepath; do
         changed_files[$filepath]="${change_type}|${file_status}"
       done < <({
@@ -341,8 +355,8 @@ diffwatch() {
       })
 
       # トップレベルの構造を取得（ディレクトリとファイル）
-      declare -a top_dirs
-      declare -a top_files
+      local -a top_dirs=()
+      local -a top_files=()
 
       # git ls-tree でトップレベルを取得
       while read -r line; do
@@ -357,7 +371,7 @@ diffwatch() {
       done < <(git ls-tree HEAD 2>/dev/null)
 
       # 変更があるディレクトリを特定
-      declare -A dir_has_changes
+      local -A dir_has_changes
       for filepath in "${(@k)changed_files}"; do
         topdir=$(echo "$filepath" | cut -d'/' -f1)
         if [[ "$filepath" == */* ]]; then
@@ -435,11 +449,12 @@ diffwatch() {
             else
               stats=$(git diff --numstat "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
             fi
+            stats=$(_colorize_stats "$stats")
 
             if [[ $file_is_last -eq 1 ]]; then
-              echo -e "${prefix}└─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${C_DIM}${stats}${C_RESET}"
+              echo -e "${prefix}└─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${stats}"
             else
-              echo -e "${prefix}├─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${C_DIM}${stats}${C_RESET}"
+              echo -e "${prefix}├─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${stats}"
             fi
           done
         else
@@ -492,11 +507,12 @@ diffwatch() {
           else
             stats=$(git diff --numstat "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
           fi
+          stats=$(_colorize_stats "$stats")
 
           if [[ $is_last -eq 1 ]]; then
-            echo -e "  └─ ${file} ${icon} ${color}${status_label}${C_RESET} ${C_DIM}${stats}${C_RESET}"
+            echo -e "  └─ ${file} ${icon} ${color}${status_label}${C_RESET} ${stats}"
           else
-            echo -e "  ├─ ${file} ${icon} ${color}${status_label}${C_RESET} ${C_DIM}${stats}${C_RESET}"
+            echo -e "  ├─ ${file} ${icon} ${color}${status_label}${C_RESET} ${stats}"
           fi
         else
           # 変更がないファイルは名前だけ
@@ -617,7 +633,7 @@ branchdiff() {
       echo ""
 
       # 変更があるファイルを収集
-      declare -A changed_files_map
+      local -A changed_files_map=()
       while IFS=$'\t' read -r file_status filepath; do
         changed_files_map[$filepath]="$file_status"
       done < <({
@@ -626,8 +642,8 @@ branchdiff() {
       })
 
       # トップレベルの構造を取得（ディレクトリとファイル）
-      declare -a top_dirs
-      declare -a top_files
+      local -a top_dirs=()
+      local -a top_files=()
 
       # git ls-tree でトップレベルを取得
       while read -r line; do
@@ -642,7 +658,7 @@ branchdiff() {
       done < <(git ls-tree HEAD 2>/dev/null)
 
       # 変更があるディレクトリを特定
-      declare -A dir_has_changes
+      local -A dir_has_changes
       for filepath in "${(@k)changed_files_map}"; do
         topdir=$(echo "$filepath" | cut -d'/' -f1)
         if [[ "$filepath" == */* ]]; then
@@ -730,11 +746,12 @@ branchdiff() {
             else
               stats=$(git diff --numstat "${default_branch}...HEAD" -- "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
             fi
+            stats=$(_colorize_stats "$stats")
 
             if [[ $file_is_last -eq 1 ]]; then
-              echo -e "${prefix}└─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${C_DIM}${stats}${C_RESET}"
+              echo -e "${prefix}└─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${stats}"
             else
-              echo -e "${prefix}├─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${C_DIM}${stats}${C_RESET}"
+              echo -e "${prefix}├─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${stats}"
             fi
           done
         else
@@ -797,11 +814,12 @@ branchdiff() {
           else
             stats=$(git diff --numstat "${default_branch}...HEAD" -- "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
           fi
+          stats=$(_colorize_stats "$stats")
 
           if [[ $is_last -eq 1 ]]; then
-            echo -e "  └─ ${file} ${icon} ${color}${status_label}${C_RESET} ${C_DIM}${stats}${C_RESET}"
+            echo -e "  └─ ${file} ${icon} ${color}${status_label}${C_RESET} ${stats}"
           else
-            echo -e "  ├─ ${file} ${icon} ${color}${status_label}${C_RESET} ${C_DIM}${stats}${C_RESET}"
+            echo -e "  ├─ ${file} ${icon} ${color}${status_label}${C_RESET} ${stats}"
           fi
         else
           # 変更がないファイルは名前だけ
