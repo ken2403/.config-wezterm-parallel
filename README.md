@@ -6,22 +6,29 @@ AI-Agent並列開発をサポートするWezTerm + zsh設定
 
 ## 特徴
 
-- **L字型3ペイン構成**: 起動時・新規タブ作成時に自動で3ペイン構成
-- **diffwatch自動起動**: モニターペインでGit差分を自動監視
+- **4ペイン構成**: 起動時・新規タブ作成時に自動で4ペイン構成
+- **二段階モニタリング**: ワーキング差分とブランチ差分を同時監視
 - **ライトグリーンテーマ**: 目に優しく見やすいカラースキーム
 - **Git Worktree統合**: タスクごとに独立したWorktreeを自動作成
 
 ## ペインレイアウト
 
 ```
-┌────────────────────────┬─────────────────┐
-│                        │  📊 MONITOR     │
-│  🤖 AI PANE            │  (diffwatch)    │
-│  (Claude Code)         ├─────────────────┤
-│                        │  🔧 HUMAN       │
-│                        │  (your shell)   │
-└────────────────────────┴─────────────────┘
+┌─────────┬──────────────────────────────┐
+│ WORKING │                              │
+│(diffwatch) 🤖 AI PANE (80%)            │
+├─────────┤  (Claude Code)               │
+│ BRANCH  │                              │
+│(branchdiff)─────────────────────────────┤
+│         │  🔧 HUMAN (20%)              │
+└─────────┴──────────────────────────────┘
+    20%              80%
 ```
+
+- **Working Monitor (左上 20%)**: ワーキングディレクトリの差分をツリー形式で自動監視
+- **Branch Monitor (左下 20%)**: デフォルトブランチとの差分をツリー形式で自動監視
+- **AI Pane (右上 80%)**: Claude Codeのメイン作業エリア
+- **Human Pane (右下 20%)**: 手動コマンド実行用
 
 ## 構成
 
@@ -67,9 +74,10 @@ source ./install.sh
 
 | コマンド | 説明 |
 |----------|------|
-| `pdev <task>` | 並列開発タブ作成（3ペイン + diffwatch） |
+| `pdev <task>` | **Worktree作成** + 新タブ（4ペイン + 2モニター） |
 | `pstatus` | 全Worktree状態確認 |
-| `diffwatch [interval]` | 差分モニター（デフォルト2秒） |
+| `diffwatch [interval]` | ワーキング差分モニター（デフォルト2秒） |
+| `branchdiff [interval]` | ブランチ差分モニター（デフォルト2秒） |
 | `pmerge <task>` | タスクをマージ |
 | `pclean [task]` | Worktree削除（fzf選択可） |
 | `pdhelp` | 並列開発ヘルプ |
@@ -77,12 +85,40 @@ source ./install.sh
 
 ## 使い方
 
+### 新規タスクの開始（Worktree作成）
+
 ```bash
 cd /path/to/git-repo
 pdev feat-auth-login
 # → ../repo-feat-auth-login に feat/auth/login ブランチ作成
-# → 新タブで3ペイン構成が開く（diffwatch自動起動）
+# → 新タブで4ペイン構成が開く
+# → 左上: ワーキング差分監視（diffwatch自動起動）
+# → 左下: ブランチ差分監視（branchdiff自動起動）
 ```
+
+### 既存Worktreeでの作業
+
+```bash
+# 既存のWorktreeディレクトリに移動済みの場合
+# Cmd+T で4ペインの新規タブを開く（Worktree作成なし）
+```
+
+### ワークフロー例
+
+1. **メインリポジトリで新規タスク開始**
+   ```bash
+   cd ~/projects/myapp          # メインリポジトリ
+   pdev feat-user-profile       # Worktree + 新タブ作成
+   ```
+
+2. **既存タスクに戻る**
+   ```bash
+   cd ~/projects/myapp-feat-user-profile
+   # Cmd+T で4ペイン構成の新規タブを開く
+   ```
+
+3. **シンプルなタブが必要な場合**
+   - `Cmd+Shift+T` でペイン分割なしのタブを開く
 
 ## ショートカット
 
@@ -90,8 +126,8 @@ pdev feat-auth-login
 
 | キー | 機能 |
 |------|------|
-| `Cmd+T` | 新タブ（3ペイン + diffwatch） |
-| `Cmd+Shift+T` | シンプルな新タブ（分割なし） |
+| `Cmd+T` | 新タブ（4ペイン + 2モニター、現在のディレクトリで開く） |
+| `Cmd+Shift+T` | シンプルな新タブ（分割なし、現在のディレクトリで開く） |
 | `Cmd+W` | タブを閉じる |
 | `Cmd+1-9` | タブ番号で移動 |
 | `Cmd+Shift+[/]` | 前/次のタブ |
@@ -105,7 +141,7 @@ pdev feat-auth-login
 | `Cmd+Shift+D` | 横分割（上下に分ける） |
 | `Cmd+Opt+矢印` | ペイン移動 |
 | `Cmd+Opt+h/j/k/l` | Vim風ペイン移動 |
-| `Cmd+Opt+1/2/3` | ペイン番号で直接移動 |
+| `Cmd+Opt+1/2/3/4` | ペイン番号で直接移動（1:AI, 2:Working, 3:Branch, 4:Human） |
 | `Cmd+Z` | ペインズーム（トグル） |
 | `Cmd+Shift+W` | ペインを閉じる |
 | `Cmd+Opt+0` | ペインを入れ替え |

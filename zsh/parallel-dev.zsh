@@ -115,6 +115,20 @@ _info() {
   echo -e "${C_BLUE}  ▸${C_RESET} $1"
 }
 
+# statsの色付け（+は緑、-は赤）
+_colorize_stats() {
+  local stats="$1"
+  if [[ -z "$stats" ]]; then
+    echo ""
+    return
+  fi
+  # +数字を緑、-数字を赤で色付け
+  stats="${stats//+/\\033[32m+}"
+  stats="${stats//-/\\033[31m-}"
+  stats="${stats}\\033[0m"
+  echo -e "$stats"
+}
+
 # デフォルトブランチを取得
 _default_branch() {
   # リモートのHEADから取得を試みる
@@ -228,11 +242,11 @@ pdev() {
     # CLIコマンド間に少し待機（pane IDが安定するまで）
     sleep 0.2
 
-    # 右側にモニターペイン (35%)
-    local monitor_pane_id
-    monitor_pane_id=$("$wezterm_cli" cli split-pane --right --percent 35 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null)
+    # 左側にモニターペイン (20%)
+    local monitor_top_id
+    monitor_top_id=$("$wezterm_cli" cli split-pane --left --percent 20 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null)
 
-    if [[ -z "$monitor_pane_id" ]] || ! [[ "$monitor_pane_id" =~ ^[0-9]+$ ]]; then
+    if [[ -z "$monitor_top_id" ]] || ! [[ "$monitor_top_id" =~ ^[0-9]+$ ]]; then
       _warn "Failed to create monitor pane, tab created without split"
       "$wezterm_cli" cli activate-pane --pane-id "$main_pane_id" 2>/dev/null
       _success "New tab created (single pane)"
@@ -241,13 +255,24 @@ pdev() {
 
     sleep 0.1
 
-    # モニターペインの下に人間ペイン (50%)
-    "$wezterm_cli" cli split-pane --bottom --percent 50 --pane-id "$monitor_pane_id" --cwd "$worktree_path" 2>/dev/null
+    # モニターペインを上下に分割
+    local monitor_bottom_id
+    monitor_bottom_id=$("$wezterm_cli" cli split-pane --bottom --percent 50 --pane-id "$monitor_top_id" --cwd "$worktree_path" 2>/dev/null)
 
     sleep 0.1
 
-    # モニターペインでdiffwatchコマンドを実行
-    "$wezterm_cli" cli send-text --pane-id "$monitor_pane_id" --no-paste "diffwatch"$'\n' 2>/dev/null
+    # AIペインの下に人間ペイン (20%)
+    "$wezterm_cli" cli split-pane --bottom --percent 20 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null
+
+    sleep 0.1
+
+    # 上のモニターペインでdiffwatchコマンドを実行
+    "$wezterm_cli" cli send-text --pane-id "$monitor_top_id" --no-paste "diffwatch"$'\n' 2>/dev/null
+
+    sleep 0.1
+
+    # 下のモニターペインでbranchdiffコマンドを実行
+    "$wezterm_cli" cli send-text --pane-id "$monitor_bottom_id" --no-paste "branchdiff"$'\n' 2>/dev/null
 
     # メインペインにフォーカス
     "$wezterm_cli" cli activate-pane --pane-id "$main_pane_id" 2>/dev/null
@@ -264,16 +289,47 @@ pdev() {
 }
 
 # -----------------------------------------------------------------------------
-# diffwatch - 差分モニター
+# diffwatch - 差分モニター（Tree表示）
 # -----------------------------------------------------------------------------
 diffwatch() {
   local interval="${1:-2}"
+  local prev_output=""
 
   while true; do
-    clear
-
+    # 現在の状態を取得
     local branch=$(git branch --show-current 2>/dev/null || echo "unknown")
     local task=$(_branch_to_task "$branch")
+    local modified=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
+    local staged=$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
+    local untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+    # 現在の出力内容を生成（変数に保存）
+    local current_output=""
+    current_output+="${branch}|${modified}|${staged}|${untracked}"
+
+    # 差分リストを取得して状態に追加
+    current_output+="|"
+    current_output+=$(git diff --name-status 2>/dev/null | sort)
+    current_output+="|"
+    current_output+=$(git diff --cached --name-status 2>/dev/null | sort)
+    current_output+="|"
+    # untrackedファイルはタイムスタンプも含めて変更検知
+    current_output+=$(git ls-files --others --exclude-standard 2>/dev/null | while read -r f; do
+      mtime=$(stat -f "%m" "$f" 2>/dev/null || echo "0")
+      echo "${mtime}:${f}"
+    done | sort)
+
+    # 前回と同じなら再描画をスキップ
+    if [[ "$current_output" == "$prev_output" ]]; then
+      sleep "$interval"
+      continue
+    fi
+
+    # 変更があった場合のみ再描画
+    prev_output="$current_output"
+
+    # カーソルをホームに移動して画面クリア
+    printf '\033[H\033[J'
 
     # ヘッダー
     echo -e "${C_GREEN}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
@@ -281,43 +337,656 @@ diffwatch() {
     echo -e "${C_GREEN}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
     echo ""
 
-    # ステータス取得
-    local modified=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
-    local staged=$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
-    local untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
-
     # サマリー
     echo -e "  ${C_YELLOW}●${C_RESET} Modified:  ${C_BOLD}${modified}${C_RESET}"
     echo -e "  ${C_GREEN}◆${C_RESET} Staged:    ${C_BOLD}${staged}${C_RESET}"
     echo -e "  ${C_GRAY}?${C_RESET} Untracked: ${C_BOLD}${untracked}${C_RESET}"
     echo ""
 
-    # 差分詳細
-    if [[ $modified -gt 0 ]] || [[ $staged -gt 0 ]]; then
-      echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
+    # ファイルツリー表示（tree風）
+    echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
+    echo ""
 
-      # Modified files
-      git diff --name-only 2>/dev/null | while read file; do
-        local stats=$(git diff --numstat "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
-        echo -e "  ${C_YELLOW}●${C_RESET} ${file}"
-        echo -e "    ${C_GREEN}${stats%% *}${C_RESET} ${C_RED}${stats##* }${C_RESET}"
+    if [[ $modified -gt 0 ]] || [[ $staged -gt 0 ]] || [[ $untracked -gt 0 ]]; then
+      # 変更があるファイルを収集
+      local -A changed_files=()
+      while IFS=$'\t' read -r change_type file_status filepath rest; do
+        # パスの正規化（先頭の./を削除）
+        filepath="${filepath#./}"
+        # リネームの場合は最後のフィールドを使用
+        [[ -n "$rest" ]] && filepath="${rest#./}"
+        [[ -n "$filepath" ]] && changed_files[$filepath]="${change_type}|${file_status}"
+      done < <({
+        git diff --name-status 2>/dev/null | awk -F'\t' '{print "modified\t" $0}'
+        git diff --cached --name-status 2>/dev/null | awk -F'\t' '{print "staged\t" $0}'
+        git ls-files --others --exclude-standard 2>/dev/null | awk '{print "untracked\tU\t" $0}'
+      })
+
+      # トップレベルの構造を取得（ディレクトリとファイル）
+      local -a top_dirs=()
+      local -a top_files=()
+
+      # git ls-tree でトップレベルを取得
+      while read -r line; do
+        [[ -z "$line" ]] && continue
+        type=$(echo "$line" | awk '{print $2}')
+        name=$(echo "$line" | awk '{print $4}')
+
+        if [[ -n "$name" && "$type" == "tree" ]]; then
+          top_dirs+=("$name")
+        elif [[ -n "$name" && "$type" == "blob" ]]; then
+          top_files+=("$name")
+        fi
+      done < <(git ls-tree HEAD 2>/dev/null)
+
+      # 変更があるディレクトリを特定（untrackedディレクトリも追加）
+      local -A dir_has_changes
+      local -A seen_top_dirs
+      local -A seen_top_files
+
+      for dir in "${top_dirs[@]}"; do
+        seen_top_dirs[$dir]=1
       done
 
-      # Staged files
-      git diff --cached --name-only 2>/dev/null | while read file; do
-        local stats=$(git diff --cached --numstat "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
-        echo -e "  ${C_GREEN}◆${C_RESET} ${file} ${C_DIM}(staged)${C_RESET}"
-        echo -e "    ${C_GREEN}${stats%% *}${C_RESET} ${C_RED}${stats##* }${C_RESET}"
+      for file in "${top_files[@]}"; do
+        seen_top_files[$file]=1
+      done
+
+      for filepath in "${(@k)changed_files}"; do
+        if [[ "$filepath" == */* ]]; then
+          # ディレクトリ内のファイル
+          topdir=$(echo "$filepath" | cut -d'/' -f1)
+          dir_has_changes[$topdir]=1
+          # untrackedディレクトリがtop_dirsにない場合は追加
+          if [[ -z "${seen_top_dirs[$topdir]}" ]]; then
+            top_dirs+=("$topdir")
+            seen_top_dirs[$topdir]=1
+          fi
+        else
+          # ルートレベルのファイル（untrackedファイル含む）
+          if [[ -z "${seen_top_files[$filepath]}" ]]; then
+            top_files+=("$filepath")
+            seen_top_files[$filepath]=1
+          fi
+        fi
+      done
+
+      echo "  ."
+
+      # ディレクトリを表示（total_itemsはtop_files更新後に計算）
+      local total_items=$((${#top_dirs[@]} + ${#top_files[@]}))
+      local current=0
+
+      for dir in "${top_dirs[@]}"; do
+        current=$((current + 1))
+        local is_last=0
+        [[ $current -eq $total_items ]] && is_last=1
+
+        if [[ -n "${dir_has_changes[$dir]}" ]]; then
+          # 変更があるディレクトリは展開
+          if [[ $is_last -eq 1 ]] && [[ ${#top_files[@]} -eq 0 ]]; then
+            echo "  └─ ${dir}/"
+            prefix="     "
+          else
+            echo "  ├─ ${dir}/"
+            prefix="  │  "
+          fi
+
+          # ディレクトリ内の変更ファイルを表示
+          local -a dir_changed_files=()
+          for filepath in "${(@k)changed_files}"; do
+            if [[ "$filepath" == "${dir}/"* ]]; then
+              dir_changed_files+=("$filepath")
+            fi
+          done
+
+          local file_count=${#dir_changed_files[@]}
+          local file_idx=0
+          for filepath in "${(@on)dir_changed_files[@]}"; do
+            file_idx=$((file_idx + 1))
+            local file_is_last=0
+            [[ $file_idx -eq $file_count ]] && file_is_last=1
+
+            filename=$(basename "$filepath")
+            IFS='|' read -r change_type file_status <<< "${changed_files[$filepath]}"
+
+            # Status icon and color
+            if [[ "$change_type" == "staged" ]]; then
+              icon="${C_GREEN}◆${C_RESET}"
+              color="${C_GREEN}"
+            elif [[ "$change_type" == "untracked" ]]; then
+              icon="${C_GRAY}?${C_RESET}"
+              color="${C_GRAY}"
+            else
+              icon="${C_YELLOW}●${C_RESET}"
+              color="${C_YELLOW}"
+            fi
+
+            # Status label
+            case "$file_status" in
+              M) status_label="[mod]" ;;
+              A) status_label="[add]" ;;
+              D) status_label="[del]" ;;
+              R*) status_label="[ren]" ;;
+              U) status_label="[new]" ;;
+              *) status_label="[${file_status}]" ;;
+            esac
+
+            # Get stats
+            if [[ "$change_type" == "staged" ]]; then
+              stats=$(git diff --cached --numstat "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
+            elif [[ "$change_type" == "untracked" ]]; then
+              stats=$(wc -l < "$filepath" 2>/dev/null | awk '{print "+"$1}')
+            else
+              stats=$(git diff --numstat "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
+            fi
+            stats=$(_colorize_stats "$stats")
+
+            if [[ $file_is_last -eq 1 ]]; then
+              echo -e "${prefix}└─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${stats}"
+            else
+              echo -e "${prefix}├─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${stats}"
+            fi
+          done
+        else
+          # 変更がないディレクトリは名前だけ
+          if [[ $is_last -eq 1 ]] && [[ ${#top_files[@]} -eq 0 ]]; then
+            echo "  └─ ${dir}/"
+          else
+            echo "  ├─ ${dir}/"
+          fi
+        fi
+      done
+
+      # トップレベルのファイルを表示
+      for file in "${top_files[@]}"; do
+        current=$((current + 1))
+        local is_last=0
+        [[ $current -eq $total_items ]] && is_last=1
+
+        if [[ -n "${changed_files[$file]}" ]]; then
+          # 変更があるファイルは詳細表示
+          IFS='|' read -r change_type file_status <<< "${changed_files[$file]}"
+
+          # Status icon and color
+          if [[ "$change_type" == "staged" ]]; then
+            icon="${C_GREEN}◆${C_RESET}"
+            color="${C_GREEN}"
+          elif [[ "$change_type" == "untracked" ]]; then
+            icon="${C_GRAY}?${C_RESET}"
+            color="${C_GRAY}"
+          else
+            icon="${C_YELLOW}●${C_RESET}"
+            color="${C_YELLOW}"
+          fi
+
+          # Status label
+          case "$file_status" in
+            M) status_label="[mod]" ;;
+            A) status_label="[add]" ;;
+            D) status_label="[del]" ;;
+            R*) status_label="[ren]" ;;
+            U) status_label="[new]" ;;
+            *) status_label="[${file_status}]" ;;
+          esac
+
+          # Get stats
+          if [[ "$change_type" == "staged" ]]; then
+            stats=$(git diff --cached --numstat "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
+          elif [[ "$change_type" == "untracked" ]]; then
+            stats=$(wc -l < "$file" 2>/dev/null | awk '{print "+"$1}')
+          else
+            stats=$(git diff --numstat "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
+          fi
+          stats=$(_colorize_stats "$stats")
+
+          if [[ $is_last -eq 1 ]]; then
+            echo -e "  └─ ${file} ${icon} ${color}${status_label}${C_RESET} ${stats}"
+          else
+            echo -e "  ├─ ${file} ${icon} ${color}${status_label}${C_RESET} ${stats}"
+          fi
+        else
+          # 変更がないファイルは名前だけ
+          if [[ $is_last -eq 1 ]]; then
+            echo "  └─ ${file}"
+          else
+            echo "  ├─ ${file}"
+          fi
+        fi
       done
 
       echo ""
+    else
+      # 差分がない場合でもroot構造を表示
+      local -a top_dirs=()
+      local -a top_files=()
+
+      while read -r line; do
+        type=$(echo "$line" | awk '{print $2}')
+        name=$(echo "$line" | awk '{print $4}')
+        if [[ "$type" == "tree" ]]; then
+          top_dirs+=("$name")
+        elif [[ "$type" == "blob" ]]; then
+          top_files+=("$name")
+        fi
+      done < <(git ls-tree HEAD 2>/dev/null)
+
+      echo "  ."
+      local total_items=$((${#top_dirs[@]} + ${#top_files[@]}))
+      local current=0
+
+      for dir in "${top_dirs[@]}"; do
+        current=$((current + 1))
+        if [[ $current -eq $total_items ]]; then
+          echo "  └─ ${dir}/"
+        else
+          echo "  ├─ ${dir}/"
+        fi
+      done
+
+      for file in "${top_files[@]}"; do
+        current=$((current + 1))
+        if [[ $current -eq $total_items ]]; then
+          echo "  └─ ${file}"
+        else
+          echo "  ├─ ${file}"
+        fi
+      done
+
+      echo ""
+      echo -e "  ${C_GRAY}No changes${C_RESET}"
+      echo ""
     fi
 
-    # 合計差分
+    # 合計差分（色付き）
     local total_stats=$(git diff --stat 2>/dev/null | tail -1)
     if [[ -n "$total_stats" ]]; then
       echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
-      echo -e "  ${C_DIM}${total_stats}${C_RESET}"
+      # insertions(+)の数字とテキストを緑に、deletions(-)の数字とテキストを赤に
+      total_stats=$(echo "$total_stats" | sed -E 's/([0-9]+) insertion/\x1b[32m\1 insertion\x1b[0m/g')
+      total_stats=$(echo "$total_stats" | sed -E 's/([0-9]+) deletion/\x1b[31m\1 deletion\x1b[0m/g')
+      echo -e "  ${total_stats}"
+    fi
+
+    # タイムスタンプ
+    echo ""
+    echo -e "${C_GRAY}  🕐 $(date '+%H:%M:%S') │ ${interval}s refresh${C_RESET}"
+    echo -e "${C_GRAY}  Press Ctrl+C to stop${C_RESET}"
+
+    sleep "$interval"
+  done
+}
+
+# -----------------------------------------------------------------------------
+# branchdiff - ブランチ差分モニター（デフォルトブランチとの比較）
+# -----------------------------------------------------------------------------
+branchdiff() {
+  local interval="${1:-2}"
+  local prev_output=""
+
+  while true; do
+    # 現在の状態を取得
+    local current_branch=$(git branch --show-current 2>/dev/null || echo "unknown")
+    local default_branch=$(_default_branch)
+
+    # デフォルトブランチと同じ場合の処理
+    if [[ "$current_branch" == "$default_branch" ]]; then
+      local current_output="default_branch"
+
+      # 前回と同じならスキップ
+      if [[ "$current_output" == "$prev_output" ]]; then
+        sleep "$interval"
+        continue
+      fi
+
+      prev_output="$current_output"
+
+      # カーソルをホームに移動して画面クリア
+      printf '\033[H\033[J'
+
+      # ヘッダー
+      echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
+      echo -e "${C_BLUE}${C_BOLD}  📊 BRANCH DIFF${C_RESET}"
+      echo -e "${C_BLUE}${C_BOLD}  ${current_branch} ← ${default_branch}${C_RESET}"
+      echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
+      echo ""
+      echo -e "  ${C_GRAY}Currently on default branch${C_RESET}"
+      echo -e "  ${C_GRAY}No branch comparison available${C_RESET}"
+      echo ""
+      echo -e "${C_GRAY}  🕐 $(date '+%H:%M:%S') │ ${interval}s refresh${C_RESET}"
+      echo -e "${C_GRAY}  Press Ctrl+C to stop${C_RESET}"
+      sleep "$interval"
+      continue
+    fi
+
+    # ブランチ間の差分ファイル数を取得
+    local changed_files=$(git diff --name-only "${default_branch}...HEAD" 2>/dev/null | wc -l | tr -d ' ')
+    local commits_ahead=$(git rev-list --count "${default_branch}..HEAD" 2>/dev/null || echo "0")
+    local untracked_count=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+    # 現在の出力内容を生成
+    local current_output=""
+    current_output+="${current_branch}|${default_branch}|${changed_files}|${commits_ahead}|${untracked_count}"
+
+    # 差分リストを取得して状態に追加
+    current_output+="|"
+    current_output+=$(git diff --name-status "${default_branch}...HEAD" 2>/dev/null | sort)
+    current_output+="|"
+    # untrackedファイルはタイムスタンプも含めて変更検知
+    current_output+=$(git ls-files --others --exclude-standard 2>/dev/null | while read -r f; do
+      mtime=$(stat -f "%m" "$f" 2>/dev/null || echo "0")
+      echo "${mtime}:${f}"
+    done | sort)
+
+    # 前回と同じなら再描画をスキップ
+    if [[ "$current_output" == "$prev_output" ]]; then
+      sleep "$interval"
+      continue
+    fi
+
+    # 変更があった場合のみ再描画
+    prev_output="$current_output"
+
+    # カーソルをホームに移動して画面クリア
+    printf '\033[H\033[J'
+
+    # ヘッダー
+    echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
+    echo -e "${C_BLUE}${C_BOLD}  📊 BRANCH DIFF${C_RESET}"
+    echo -e "${C_BLUE}${C_BOLD}  ${current_branch} ← ${default_branch}${C_RESET}"
+    echo -e "${C_BLUE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
+    echo ""
+
+    # サマリー
+    echo -e "  ${C_BLUE}↑${C_RESET} Commits ahead: ${C_BOLD}${commits_ahead}${C_RESET}"
+    echo -e "  ${C_YELLOW}≠${C_RESET} Changed files: ${C_BOLD}${changed_files}${C_RESET}"
+    if [[ $untracked_count -gt 0 ]]; then
+      echo -e "  ${C_GRAY}?${C_RESET} Untracked:     ${C_BOLD}${untracked_count}${C_RESET}"
+    fi
+    echo ""
+
+    # ファイルツリー表示（tree風）
+    echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
+    echo ""
+
+    if [[ $changed_files -gt 0 ]] || [[ $untracked_count -gt 0 ]]; then
+      # 変更があるファイルを収集
+      local -A changed_files_map=()
+      while IFS=$'\t' read -r file_status filepath rest; do
+        # パスの正規化（先頭の./を削除）
+        filepath="${filepath#./}"
+        # リネームの場合は最後のフィールドを使用
+        [[ -n "$rest" ]] && filepath="${rest#./}"
+        [[ -n "$filepath" ]] && changed_files_map[$filepath]="$file_status"
+      done < <({
+        git diff --name-status "${default_branch}...HEAD" 2>/dev/null
+        git ls-files --others --exclude-standard 2>/dev/null | awk '{print "U\t" $0}'
+      })
+
+      # トップレベルの構造を取得（ディレクトリとファイル）
+      local -a top_dirs=()
+      local -a top_files=()
+
+      # git ls-tree でトップレベルを取得
+      while read -r line; do
+        [[ -z "$line" ]] && continue
+        type=$(echo "$line" | awk '{print $2}')
+        name=$(echo "$line" | awk '{print $4}')
+
+        if [[ -n "$name" && "$type" == "tree" ]]; then
+          top_dirs+=("$name")
+        elif [[ -n "$name" && "$type" == "blob" ]]; then
+          top_files+=("$name")
+        fi
+      done < <(git ls-tree HEAD 2>/dev/null)
+
+      # 変更があるディレクトリを特定（untrackedディレクトリも追加）
+      local -A dir_has_changes
+      local -A seen_top_dirs
+      local -A seen_top_files
+
+      for dir in "${top_dirs[@]}"; do
+        seen_top_dirs[$dir]=1
+      done
+
+      for file in "${top_files[@]}"; do
+        seen_top_files[$file]=1
+      done
+
+      for filepath in "${(@k)changed_files_map}"; do
+        if [[ "$filepath" == */* ]]; then
+          # ディレクトリ内のファイル
+          topdir=$(echo "$filepath" | cut -d'/' -f1)
+          dir_has_changes[$topdir]=1
+          # untrackedディレクトリがtop_dirsにない場合は追加
+          if [[ -z "${seen_top_dirs[$topdir]}" ]]; then
+            top_dirs+=("$topdir")
+            seen_top_dirs[$topdir]=1
+          fi
+        else
+          # ルートレベルのファイル（untrackedファイル含む）
+          if [[ -z "${seen_top_files[$filepath]}" ]]; then
+            top_files+=("$filepath")
+            seen_top_files[$filepath]=1
+          fi
+        fi
+      done
+
+      echo "  ."
+
+      # ディレクトリを表示（total_itemsはtop_files更新後に計算）
+      local total_items=$((${#top_dirs[@]} + ${#top_files[@]}))
+      local current=0
+
+      for dir in "${top_dirs[@]}"; do
+        current=$((current + 1))
+        local is_last=0
+        [[ $current -eq $total_items ]] && is_last=1
+
+        if [[ -n "${dir_has_changes[$dir]}" ]]; then
+          # 変更があるディレクトリは展開
+          if [[ $is_last -eq 1 ]] && [[ ${#top_files[@]} -eq 0 ]]; then
+            echo "  └─ ${dir}/"
+            prefix="     "
+          else
+            echo "  ├─ ${dir}/"
+            prefix="  │  "
+          fi
+
+          # ディレクトリ内の変更ファイルを表示
+          local -a dir_changed_files=()
+          for filepath in "${(@k)changed_files_map}"; do
+            if [[ "$filepath" == "${dir}/"* ]]; then
+              dir_changed_files+=("$filepath")
+            fi
+          done
+
+          local file_count=${#dir_changed_files[@]}
+          local file_idx=0
+          for filepath in "${(@on)dir_changed_files[@]}"; do
+            file_idx=$((file_idx + 1))
+            local file_is_last=0
+            [[ $file_idx -eq $file_count ]] && file_is_last=1
+
+            filename=$(basename "$filepath")
+            file_status="${changed_files_map[$filepath]}"
+
+            # Status icon and color
+            case "$file_status" in
+              M)
+                icon="${C_YELLOW}●${C_RESET}"
+                color="${C_YELLOW}"
+                status_label="[mod]"
+                ;;
+              A)
+                icon="${C_GREEN}+${C_RESET}"
+                color="${C_GREEN}"
+                status_label="[add]"
+                ;;
+              D)
+                icon="${C_RED}−${C_RESET}"
+                color="${C_RED}"
+                status_label="[del]"
+                ;;
+              R*)
+                icon="${C_BLUE}→${C_RESET}"
+                color="${C_BLUE}"
+                status_label="[ren]"
+                ;;
+              U)
+                icon="${C_GRAY}?${C_RESET}"
+                color="${C_GRAY}"
+                status_label="[new]"
+                ;;
+              *)
+                icon="${C_GRAY}?${C_RESET}"
+                color="${C_GRAY}"
+                status_label="[${file_status}]"
+                ;;
+            esac
+
+            # Get stats
+            if [[ "$file_status" == "U" ]]; then
+              stats=$(wc -l < "$filepath" 2>/dev/null | awk '{print "+"$1}')
+            else
+              stats=$(git diff --numstat "${default_branch}...HEAD" -- "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
+            fi
+            stats=$(_colorize_stats "$stats")
+
+            if [[ $file_is_last -eq 1 ]]; then
+              echo -e "${prefix}└─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${stats}"
+            else
+              echo -e "${prefix}├─ ${filename} ${icon} ${color}${status_label}${C_RESET} ${stats}"
+            fi
+          done
+        else
+          # 変更がないディレクトリは名前だけ
+          if [[ $is_last -eq 1 ]] && [[ ${#top_files[@]} -eq 0 ]]; then
+            echo "  └─ ${dir}/"
+          else
+            echo "  ├─ ${dir}/"
+          fi
+        fi
+      done
+
+      # トップレベルのファイルを表示
+      for file in "${top_files[@]}"; do
+        current=$((current + 1))
+        local is_last=0
+        [[ $current -eq $total_items ]] && is_last=1
+
+        if [[ -n "${changed_files_map[$file]}" ]]; then
+          # 変更があるファイルは詳細表示
+          file_status="${changed_files_map[$file]}"
+
+          # Status icon and color
+          case "$file_status" in
+            M)
+              icon="${C_YELLOW}●${C_RESET}"
+              color="${C_YELLOW}"
+              status_label="[mod]"
+              ;;
+            A)
+              icon="${C_GREEN}+${C_RESET}"
+              color="${C_GREEN}"
+              status_label="[add]"
+              ;;
+            D)
+              icon="${C_RED}−${C_RESET}"
+              color="${C_RED}"
+              status_label="[del]"
+              ;;
+            R*)
+              icon="${C_BLUE}→${C_RESET}"
+              color="${C_BLUE}"
+              status_label="[ren]"
+              ;;
+            U)
+              icon="${C_GRAY}?${C_RESET}"
+              color="${C_GRAY}"
+              status_label="[new]"
+              ;;
+            *)
+              icon="${C_GRAY}?${C_RESET}"
+              color="${C_GRAY}"
+              status_label="[${file_status}]"
+              ;;
+          esac
+
+          # Get stats
+          if [[ "$file_status" == "U" ]]; then
+            stats=$(wc -l < "$file" 2>/dev/null | awk '{print "+"$1}')
+          else
+            stats=$(git diff --numstat "${default_branch}...HEAD" -- "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
+          fi
+          stats=$(_colorize_stats "$stats")
+
+          if [[ $is_last -eq 1 ]]; then
+            echo -e "  └─ ${file} ${icon} ${color}${status_label}${C_RESET} ${stats}"
+          else
+            echo -e "  ├─ ${file} ${icon} ${color}${status_label}${C_RESET} ${stats}"
+          fi
+        else
+          # 変更がないファイルは名前だけ
+          if [[ $is_last -eq 1 ]]; then
+            echo "  └─ ${file}"
+          else
+            echo "  ├─ ${file}"
+          fi
+        fi
+      done
+
+      echo ""
+    else
+      # 差分がない場合でもroot構造を表示
+      local -a top_dirs=()
+      local -a top_files=()
+
+      while read -r line; do
+        type=$(echo "$line" | awk '{print $2}')
+        name=$(echo "$line" | awk '{print $4}')
+        if [[ "$type" == "tree" ]]; then
+          top_dirs+=("$name")
+        elif [[ "$type" == "blob" ]]; then
+          top_files+=("$name")
+        fi
+      done < <(git ls-tree HEAD 2>/dev/null)
+
+      echo "  ."
+      local total_items=$((${#top_dirs[@]} + ${#top_files[@]}))
+      local current=0
+
+      for dir in "${top_dirs[@]}"; do
+        current=$((current + 1))
+        if [[ $current -eq $total_items ]]; then
+          echo "  └─ ${dir}/"
+        else
+          echo "  ├─ ${dir}/"
+        fi
+      done
+
+      for file in "${top_files[@]}"; do
+        current=$((current + 1))
+        if [[ $current -eq $total_items ]]; then
+          echo "  └─ ${file}"
+        else
+          echo "  ├─ ${file}"
+        fi
+      done
+
+      echo ""
+      echo -e "  ${C_GRAY}No changes from ${default_branch}${C_RESET}"
+      echo ""
+    fi
+
+    # 合計差分（色付き）
+    local total_stats=$(git diff --stat "${default_branch}...HEAD" 2>/dev/null | tail -1)
+    if [[ -n "$total_stats" ]]; then
+      echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
+      # insertions(+)の数字とテキストを緑に、deletions(-)の数字とテキストを赤に
+      total_stats=$(echo "$total_stats" | sed -E 's/([0-9]+) insertion/\x1b[32m\1 insertion\x1b[0m/g')
+      total_stats=$(echo "$total_stats" | sed -E 's/([0-9]+) deletion/\x1b[31m\1 deletion\x1b[0m/g')
+      echo -e "  ${total_stats}"
     fi
 
     # タイムスタンプ
@@ -468,16 +1137,19 @@ pdhelp() {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   【タスク作成】
-    pdev <task-name> [base]   新規並列開発タブ作成
+    pdev <task-name> [base]   新規Worktree作成 + 4ペインタブ
 
     例: pdev feat-auth-login
-        → Directory: ../feat-auth-login
+        → Directory: ../feat-auth-login (Worktree作成)
         → Branch:    feat/auth/login
-        → 3-pane layout (AI / Monitor / Human)
+        → 4-pane layout with dual monitors
+
+    ※ Cmd+T: 現在のディレクトリで4ペインタブ作成（Worktree作成なし）
 
   【状態確認】
     pstatus                   全Worktreeの状態一覧
-    diffwatch [interval]      差分モニター (default: 2s)
+    diffwatch [interval]      ワーキング差分モニター (default: 2s)
+    branchdiff [interval]     ブランチ差分モニター (default: 2s)
 
   【マージ・削除】
     pmerge <task> [target]    タスクをマージ
@@ -491,13 +1163,15 @@ pdhelp() {
   📐 Pane Layout
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ┌────────────────────────┬─────────────────┐
-  │                        │  📊 MONITOR     │
-  │  🤖 AI PANE            │  (auto refresh) │
-  │  (Claude Code)         ├─────────────────┤
-  │                        │  🔧 HUMAN       │
-  │                        │  (your shell)   │
-  └────────────────────────┴─────────────────┘
+  ┌─────────┬──────────────────────────────┐
+  │ WORKING │                              │
+  │(diffwatch) 🤖 AI PANE (80%)            │
+  ├─────────┤  (Claude Code)               │
+  │ BRANCH  │                              │
+  │(branchdiff)─────────────────────────────┤
+  │         │  🔧 HUMAN (20%)              │
+  └─────────┴──────────────────────────────┘
+      20%              80%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   🎨 Status Icons
