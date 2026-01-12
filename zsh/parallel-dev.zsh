@@ -228,9 +228,9 @@ pdev() {
     # CLIコマンド間に少し待機（pane IDが安定するまで）
     sleep 0.2
 
-    # 左側にモニターペイン (25%)
+    # 左側にモニターペイン (20%)
     local monitor_top_id
-    monitor_top_id=$("$wezterm_cli" cli split-pane --left --percent 25 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null)
+    monitor_top_id=$("$wezterm_cli" cli split-pane --left --percent 20 --pane-id "$main_pane_id" --cwd "$worktree_path" 2>/dev/null)
 
     if [[ -z "$monitor_top_id" ]] || ! [[ "$monitor_top_id" =~ ^[0-9]+$ ]]; then
       _warn "Failed to create monitor pane, tab created without split"
@@ -687,15 +687,15 @@ pdhelp() {
   📐 Pane Layout
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ┌───────────┬────────────────────────────┐
-  │ WORKING   │                            │
-  │ (diffwatch)│  🤖 AI PANE (80%)          │
-  ├───────────┤  (Claude Code)             │
-  │ BRANCH    │                            │
-  │(branchdiff)├───────────────────────────┤
-  │           │  🔧 HUMAN (20%)            │
-  └───────────┴────────────────────────────┘
-      25%              75%
+  ┌─────────┬──────────────────────────────┐
+  │ WORKING │                              │
+  │(diffwatch) 🤖 AI PANE (80%)            │
+  ├─────────┤  (Claude Code)               │
+  │ BRANCH  │                              │
+  │(branchdiff)─────────────────────────────┤
+  │         │  🔧 HUMAN (20%)              │
+  └─────────┴──────────────────────────────┘
+      20%              80%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   🎨 Status Icons

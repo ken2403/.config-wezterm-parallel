@@ -13,8 +13,8 @@ end
 -- =============================================================================
 wezterm.on("gui-startup", function(cmd)
   local tab, pane, window = mux.spawn_window(cmd or {})
-  -- 左側にモニターペイン (25%)
-  local monitor_top = pane:split({ direction = "Left", size = 0.25 })
+  -- 左側にモニターペイン (20%)
+  local monitor_top = pane:split({ direction = "Left", size = 0.20 })
   -- モニターペインを上下に分割
   local monitor_bottom = monitor_top:split({ direction = "Bottom", size = 0.5 })
   -- 右側（AI）の下20%に人間用ペイン
@@ -169,8 +169,8 @@ config.keys = {
     mods = "CMD",
     action = wezterm.action_callback(function(window, pane)
       local tab, new_pane, _ = window:mux_window():spawn_tab({})
-      -- 左側にモニターペイン (25%)
-      local monitor_top = new_pane:split({ direction = "Left", size = 0.25 })
+      -- 左側にモニターペイン (20%)
+      local monitor_top = new_pane:split({ direction = "Left", size = 0.20 })
       -- モニターペインを上下に分割
       local monitor_bottom = monitor_top:split({ direction = "Bottom", size = 0.5 })
       -- 右側（AI）の下20%に人間用ペイン
