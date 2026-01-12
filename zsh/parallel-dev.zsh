@@ -313,7 +313,11 @@ diffwatch() {
     current_output+="|"
     current_output+=$(git diff --cached --name-status 2>/dev/null | sort)
     current_output+="|"
-    current_output+=$(git ls-files --others --exclude-standard 2>/dev/null | sort)
+    # untrackedファイルはタイムスタンプも含めて変更検知
+    current_output+=$(git ls-files --others --exclude-standard 2>/dev/null | while read -r f; do
+      stat -f "%m" "$f" 2>/dev/null || echo "0"
+      echo "$f"
+    done | paste -sd':' - | sort)
 
     # 前回と同じなら再描画をスキップ
     if [[ "$current_output" == "$prev_output" ]]; then
@@ -668,7 +672,11 @@ branchdiff() {
     current_output+="|"
     current_output+=$(git diff --name-status "${default_branch}...HEAD" 2>/dev/null | sort)
     current_output+="|"
-    current_output+=$(git ls-files --others --exclude-standard 2>/dev/null | sort)
+    # untrackedファイルはタイムスタンプも含めて変更検知
+    current_output+=$(git ls-files --others --exclude-standard 2>/dev/null | while read -r f; do
+      stat -f "%m" "$f" 2>/dev/null || echo "0"
+      echo "$f"
+    done | paste -sd':' - | sort)
 
     # 前回と同じなら再描画をスキップ
     if [[ "$current_output" == "$prev_output" ]]; then
