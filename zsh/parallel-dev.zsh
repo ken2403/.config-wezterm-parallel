@@ -362,12 +362,13 @@ diffwatch() {
 
       # git ls-tree でトップレベルを取得
       while read -r line; do
+        [[ -z "$line" ]] && continue
         type=$(echo "$line" | awk '{print $2}')
         name=$(echo "$line" | awk '{print $4}')
 
-        if [[ "$type" == "tree" ]]; then
+        if [[ -n "$name" && "$type" == "tree" ]]; then
           top_dirs+=("$name")
-        elif [[ "$type" == "blob" ]]; then
+        elif [[ -n "$name" && "$type" == "blob" ]]; then
           top_files+=("$name")
         fi
       done < <(git ls-tree HEAD 2>/dev/null)
@@ -716,12 +717,13 @@ branchdiff() {
 
       # git ls-tree でトップレベルを取得
       while read -r line; do
+        [[ -z "$line" ]] && continue
         type=$(echo "$line" | awk '{print $2}')
         name=$(echo "$line" | awk '{print $4}')
 
-        if [[ "$type" == "tree" ]]; then
+        if [[ -n "$name" && "$type" == "tree" ]]; then
           top_dirs+=("$name")
-        elif [[ "$type" == "blob" ]]; then
+        elif [[ -n "$name" && "$type" == "blob" ]]; then
           top_files+=("$name")
         fi
       done < <(git ls-tree HEAD 2>/dev/null)
