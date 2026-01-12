@@ -15,14 +15,14 @@ wezterm.on("gui-startup", function(cmd)
   local tab, pane, window = mux.spawn_window(cmd or {})
   -- 左側にモニターペイン (20%)
   local monitor_top = pane:split({ direction = "Left", size = 0.20 })
-  -- モニターペインを上下に分割
-  local monitor_bottom = monitor_top:split({ direction = "Bottom", size = 0.5 })
+  -- モニターペインを上下に分割（上35%、下65%）
+  local monitor_bottom = monitor_top:split({ direction = "Bottom", size = 0.65 })
   -- 右側（AI）の下20%に人間用ペイン
   local human_pane = pane:split({ direction = "Bottom", size = 0.20 })
   -- 上のモニターペインでdiffwatch起動（ワーキング差分）
   monitor_top:send_text("diffwatch\n")
-  -- 下のモニターペインでbranchdiff起動（ブランチ差分）
-  monitor_bottom:send_text("branchdiff\n")
+  -- 下のモニターペインでallworktrees起動（全ワークツリー状態）
+  monitor_bottom:send_text("allworktrees\n")
   -- フォーカスをAIメインペインに戻す
   pane:activate()
 end)
@@ -31,8 +31,8 @@ end)
 -- フォント設定
 -- =============================================================================
 config.font = wezterm.font("JetBrainsMono Nerd Font")
-config.font_size = 13
-config.line_height = 1.05
+config.font_size = 11
+config.line_height = 1.0
 
 -- =============================================================================
 -- カラースキーム（Light Green Theme - 目に優しく見やすい）
@@ -168,17 +168,21 @@ config.keys = {
     key = "t",
     mods = "CMD",
     action = wezterm.action_callback(function(window, pane)
-      local tab, new_pane, _ = window:mux_window():spawn_tab({})
+      -- 現在のディレクトリを取得
+      local current_dir = pane:get_current_working_dir()
+      local cwd = current_dir and current_dir.file_path or wezterm.home_dir
+
+      local tab, new_pane, _ = window:mux_window():spawn_tab({ cwd = cwd })
       -- 左側にモニターペイン (20%)
       local monitor_top = new_pane:split({ direction = "Left", size = 0.20 })
-      -- モニターペインを上下に分割
-      local monitor_bottom = monitor_top:split({ direction = "Bottom", size = 0.5 })
+      -- モニターペインを上下に分割（上35%、下65%）
+      local monitor_bottom = monitor_top:split({ direction = "Bottom", size = 0.65 })
       -- 右側（AI）の下20%に人間用ペイン
       local human_pane = new_pane:split({ direction = "Bottom", size = 0.20 })
       -- 上のモニターペインでdiffwatch起動
       monitor_top:send_text("diffwatch\n")
-      -- 下のモニターペインでbranchdiff起動
-      monitor_bottom:send_text("branchdiff\n")
+      -- 下のモニターペインでallworktrees起動
+      monitor_bottom:send_text("allworktrees\n")
       -- フォーカスをAIメインペインに
       new_pane:activate()
     end),
@@ -229,7 +233,7 @@ config.keys = {
   -- ペイン番号で直接移動 (Cmd+Opt+1-4)
   { key = "1", mods = "CMD|OPT", action = act.ActivatePaneByIndex(0) },  -- AI Pane
   { key = "2", mods = "CMD|OPT", action = act.ActivatePaneByIndex(1) },  -- Monitor (working diff)
-  { key = "3", mods = "CMD|OPT", action = act.ActivatePaneByIndex(2) },  -- Monitor (branch diff)
+  { key = "3", mods = "CMD|OPT", action = act.ActivatePaneByIndex(2) },  -- Monitor (all worktrees)
   { key = "4", mods = "CMD|OPT", action = act.ActivatePaneByIndex(3) },  -- Human
 
   -- ペインサイズ調整
