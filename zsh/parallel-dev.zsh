@@ -304,7 +304,7 @@ diffwatch() {
     echo ""
 
     # ファイルツリー表示
-    if [[ $modified -gt 0 ]] || [[ $staged -gt 0 ]]; then
+    if [[ $modified -gt 0 ]] || [[ $staged -gt 0 ]] || [[ $untracked -gt 0 ]]; then
       echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
       echo ""
 
@@ -331,6 +331,9 @@ diffwatch() {
         if [[ "$change_type" == "staged" ]]; then
           icon="${C_GREEN}◆${C_RESET}"
           color="${C_GREEN}"
+        elif [[ "$change_type" == "untracked" ]]; then
+          icon="${C_GRAY}?${C_RESET}"
+          color="${C_GRAY}"
         else
           icon="${C_YELLOW}●${C_RESET}"
           color="${C_YELLOW}"
@@ -342,12 +345,15 @@ diffwatch() {
           A) status_label="[add]" ;;
           D) status_label="[del]" ;;
           R*) status_label="[ren]" ;;
+          U) status_label="[new]" ;;
           *) status_label="[${file_status}]" ;;
         esac
 
         # Get file stats
         if [[ "$change_type" == "staged" ]]; then
           stats=$(git diff --cached --numstat "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
+        elif [[ "$change_type" == "untracked" ]]; then
+          stats=$(wc -l < "$filepath" 2>/dev/null | awk '{print "+"$1}')
         else
           stats=$(git diff --numstat "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
         fi
@@ -357,6 +363,7 @@ diffwatch() {
       done < <({
         git diff --name-status 2>/dev/null | sed 's/^/modified\t/'
         git diff --cached --name-status 2>/dev/null | sed 's/^/staged\t/'
+        git ls-files --others --exclude-standard 2>/dev/null | sed 's/^/untracked\tU\t/'
       } | sort -t$'\t' -k3)
 
       echo ""
@@ -411,18 +418,22 @@ branchdiff() {
     # ブランチ間の差分ファイル数を取得
     local changed_files=$(git diff --name-only "${default_branch}...HEAD" 2>/dev/null | wc -l | tr -d ' ')
     local commits_ahead=$(git rev-list --count "${default_branch}..HEAD" 2>/dev/null || echo "0")
+    local untracked_count=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
 
     # サマリー
     echo -e "  ${C_BLUE}↑${C_RESET} Commits ahead: ${C_BOLD}${commits_ahead}${C_RESET}"
     echo -e "  ${C_YELLOW}≠${C_RESET} Changed files: ${C_BOLD}${changed_files}${C_RESET}"
+    if [[ $untracked_count -gt 0 ]]; then
+      echo -e "  ${C_GRAY}?${C_RESET} Untracked:     ${C_BOLD}${untracked_count}${C_RESET}"
+    fi
     echo ""
 
     # ファイルツリー表示
-    if [[ $changed_files -gt 0 ]]; then
+    if [[ $changed_files -gt 0 ]] || [[ $untracked_count -gt 0 ]]; then
       echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
       echo ""
 
-      # ツリー構造でファイルを表示
+      # ツリー構造でファイルを表示（ブランチ差分 + untracked）
       local prev_dir=""
       while IFS=$'\t' read -r file_status filepath; do
         # ディレクトリパスを取得
@@ -463,6 +474,11 @@ branchdiff() {
             color="${C_BLUE}"
             status_label="[ren]"
             ;;
+          U)
+            icon="${C_GRAY}?${C_RESET}"
+            color="${C_GRAY}"
+            status_label="[new]"
+            ;;
           *)
             icon="${C_GRAY}?${C_RESET}"
             color="${C_GRAY}"
@@ -471,11 +487,18 @@ branchdiff() {
         esac
 
         # Get file stats
-        stats=$(git diff --numstat "${default_branch}...HEAD" -- "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
+        if [[ "$file_status" == "U" ]]; then
+          stats=$(wc -l < "$filepath" 2>/dev/null | awk '{print "+"$1}')
+        else
+          stats=$(git diff --numstat "${default_branch}...HEAD" -- "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
+        fi
 
         # Display filename with stats
         echo -e "  ${indent}├─ ${icon} ${color}${status_label}${C_RESET} ${filename} ${C_DIM}${stats}${C_RESET}"
-      done < <(git diff --name-status "${default_branch}...HEAD" 2>/dev/null | sort -t$'\t' -k2)
+      done < <({
+        git diff --name-status "${default_branch}...HEAD" 2>/dev/null
+        git ls-files --others --exclude-standard 2>/dev/null | sed 's/^/U\t/'
+      } | sort -t$'\t' -k2)
 
       echo ""
     else
