@@ -347,6 +347,8 @@ diffwatch() {
       # 変更があるファイルを収集
       local -A changed_files=()
       while IFS=$'\t' read -r change_type file_status filepath; do
+        # パスの正規化（先頭の./を削除）
+        filepath="${filepath#./}"
         changed_files[$filepath]="${change_type}|${file_status}"
       done < <({
         git diff --name-status 2>/dev/null | sed 's/^/modified\t/'
@@ -700,6 +702,8 @@ branchdiff() {
       # 変更があるファイルを収集
       local -A changed_files_map=()
       while IFS=$'\t' read -r file_status filepath; do
+        # パスの正規化（先頭の./を削除）
+        filepath="${filepath#./}"
         changed_files_map[$filepath]="$file_status"
       done < <({
         git diff --name-status "${default_branch}...HEAD" 2>/dev/null
