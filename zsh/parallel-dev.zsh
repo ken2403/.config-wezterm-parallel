@@ -404,9 +404,8 @@ diffwatch() {
 
       echo "  ."
 
-      # ディレクトリを表示
-      local dir_count=${#top_dirs[@]}
-      local total_items=$((dir_count + ${#top_files[@]}))
+      # ディレクトリを表示（total_itemsはtop_files更新後に計算）
+      local total_items=$((${#top_dirs[@]} + ${#top_files[@]}))
       local current=0
 
       for dir in "${top_dirs[@]}"; do
@@ -757,9 +756,8 @@ branchdiff() {
 
       echo "  ."
 
-      # ディレクトリを表示
-      local dir_count=${#top_dirs[@]}
-      local total_items=$((dir_count + ${#top_files[@]}))
+      # ディレクトリを表示（total_itemsはtop_files更新後に計算）
+      local total_items=$((${#top_dirs[@]} + ${#top_files[@]}))
       local current=0
 
       for dir in "${top_dirs[@]}"; do
