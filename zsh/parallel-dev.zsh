@@ -388,7 +388,7 @@ diffwatch() {
           fi
 
           # ディレクトリ内の変更ファイルを表示
-          declare -a dir_changed_files
+          local -a dir_changed_files=()
           for filepath in "${(@k)changed_files}"; do
             if [[ "$filepath" == "${dir}/"* ]]; then
               dir_changed_files+=("$filepath")
@@ -397,7 +397,7 @@ diffwatch() {
 
           local file_count=${#dir_changed_files[@]}
           local file_idx=0
-          for filepath in "${dir_changed_files[@]}"; do
+          for filepath in "${(@on)dir_changed_files[@]}"; do
             file_idx=$((file_idx + 1))
             local file_is_last=0
             [[ $file_idx -eq $file_count ]] && file_is_last=1
@@ -673,7 +673,7 @@ branchdiff() {
           fi
 
           # ディレクトリ内の変更ファイルを表示
-          declare -a dir_changed_files
+          local -a dir_changed_files=()
           for filepath in "${(@k)changed_files_map}"; do
             if [[ "$filepath" == "${dir}/"* ]]; then
               dir_changed_files+=("$filepath")
@@ -682,7 +682,7 @@ branchdiff() {
 
           local file_count=${#dir_changed_files[@]}
           local file_idx=0
-          for filepath in "${dir_changed_files[@]}"; do
+          for filepath in "${(@on)dir_changed_files[@]}"; do
             file_idx=$((file_idx + 1))
             local file_is_last=0
             [[ $file_idx -eq $file_count ]] && file_is_last=1
