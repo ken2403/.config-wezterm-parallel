@@ -308,23 +308,31 @@ diffwatch() {
       echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
       echo ""
 
-      # Modified and staged files をまとめて取得
+      # ツリー構造でファイルを表示
+      local prev_dir=""
       {
-        git diff --name-status 2>/dev/null | sed 's/^/modified /'
-        git diff --cached --name-status 2>/dev/null | sed 's/^/staged /'
-      } | sort -k2 | while read status_type status file; do
-        # ディレクトリ構造の描画
-        local indent=""
-        local depth=$(echo "$file" | tr -cd '/' | wc -c | tr -d ' ')
+        git diff --name-status 2>/dev/null | sed 's/^/modified\t/'
+        git diff --cached --name-status 2>/dev/null | sed 's/^/staged\t/'
+      } | sort -t$'\t' -k3 | while IFS=$'\t' read change_type file_status filepath; do
+        # ディレクトリパスを取得
+        local dirpath=$(dirname "$filepath")
+        local filename=$(basename "$filepath")
 
-        if [[ $depth -gt 0 ]]; then
-          indent=$(printf '%*s' $((depth * 2)) '' | tr ' ' '│')
-          indent="${indent%│}├─"
+        # ディレクトリが変わったら表示
+        if [[ "$dirpath" != "$prev_dir" && "$dirpath" != "." ]]; then
+          local dir_depth=$(echo "$dirpath" | tr -cd '/' | wc -c | tr -d ' ')
+          local dir_indent=$(printf '%*s' $((dir_depth * 2)) '' | tr ' ' ' ')
+          echo -e "  ${dir_indent}${C_DIM}${dirpath}/${C_RESET}"
+          prev_dir="$dirpath"
         fi
+
+        # ファイルのインデント
+        local depth=$(echo "$filepath" | tr -cd '/' | wc -c | tr -d ' ')
+        local indent=$(printf '%*s' $((depth * 2)) '' | tr ' ' ' ')
 
         # Status icon
         local icon color
-        if [[ "$status_type" == "staged" ]]; then
+        if [[ "$change_type" == "staged" ]]; then
           icon="${C_GREEN}◆${C_RESET}"
           color="${C_GREEN}"
         else
@@ -333,25 +341,25 @@ diffwatch() {
         fi
 
         # Modified type
-        case "$status" in
+        local status_label
+        case "$file_status" in
           M) status_label="[mod]" ;;
           A) status_label="[add]" ;;
           D) status_label="[del]" ;;
           R*) status_label="[ren]" ;;
-          *) status_label="[${status}]" ;;
+          *) status_label="[${file_status}]" ;;
         esac
 
         # Get file stats
         local stats=""
-        if [[ "$status_type" == "staged" ]]; then
-          stats=$(git diff --cached --numstat "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
+        if [[ "$change_type" == "staged" ]]; then
+          stats=$(git diff --cached --numstat "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
         else
-          stats=$(git diff --numstat "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
+          stats=$(git diff --numstat "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
         fi
 
         # Display filename with stats
-        local basename=$(basename "$file")
-        echo -e "  ${indent}${icon} ${color}${status_label}${C_RESET} ${basename} ${C_DIM}${stats}${C_RESET}"
+        echo -e "  ${indent}├─ ${icon} ${color}${status_label}${C_RESET} ${filename} ${C_DIM}${stats}${C_RESET}"
       done
 
       echo ""
@@ -417,19 +425,28 @@ branchdiff() {
       echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
       echo ""
 
-      git diff --name-status "${default_branch}...HEAD" 2>/dev/null | while read status file; do
-        # ディレクトリ構造の描画
-        local indent=""
-        local depth=$(echo "$file" | tr -cd '/' | wc -c | tr -d ' ')
+      # ツリー構造でファイルを表示
+      local prev_dir=""
+      git diff --name-status "${default_branch}...HEAD" 2>/dev/null | sort -t$'\t' -k2 | while IFS=$'\t' read file_status filepath; do
+        # ディレクトリパスを取得
+        local dirpath=$(dirname "$filepath")
+        local filename=$(basename "$filepath")
 
-        if [[ $depth -gt 0 ]]; then
-          indent=$(printf '%*s' $((depth * 2)) '' | tr ' ' '│')
-          indent="${indent%│}├─"
+        # ディレクトリが変わったら表示
+        if [[ "$dirpath" != "$prev_dir" && "$dirpath" != "." ]]; then
+          local dir_depth=$(echo "$dirpath" | tr -cd '/' | wc -c | tr -d ' ')
+          local dir_indent=$(printf '%*s' $((dir_depth * 2)) '' | tr ' ' ' ')
+          echo -e "  ${dir_indent}${C_DIM}${dirpath}/${C_RESET}"
+          prev_dir="$dirpath"
         fi
+
+        # ファイルのインデント
+        local depth=$(echo "$filepath" | tr -cd '/' | wc -c | tr -d ' ')
+        local indent=$(printf '%*s' $((depth * 2)) '' | tr ' ' ' ')
 
         # Status icon and color
         local icon color status_label
-        case "$status" in
+        case "$file_status" in
           M)
             icon="${C_YELLOW}●${C_RESET}"
             color="${C_YELLOW}"
@@ -453,16 +470,15 @@ branchdiff() {
           *)
             icon="${C_GRAY}?${C_RESET}"
             color="${C_GRAY}"
-            status_label="[${status}]"
+            status_label="[${file_status}]"
             ;;
         esac
 
         # Get file stats
-        local stats=$(git diff --numstat "${default_branch}...HEAD" -- "$file" 2>/dev/null | awk '{print "+"$1" -"$2}')
+        local stats=$(git diff --numstat "${default_branch}...HEAD" -- "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
 
         # Display filename with stats
-        local basename=$(basename "$file")
-        echo -e "  ${indent}${icon} ${color}${status_label}${C_RESET} ${basename} ${C_DIM}${stats}${C_RESET}"
+        echo -e "  ${indent}├─ ${icon} ${color}${status_label}${C_RESET} ${filename} ${C_DIM}${stats}${C_RESET}"
       done
 
       echo ""
