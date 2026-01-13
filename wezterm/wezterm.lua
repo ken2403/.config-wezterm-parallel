@@ -308,7 +308,7 @@ config.quick_select_patterns = {
 config.scrollback_lines = 10000
 config.enable_scroll_bar = false
 config.audible_bell = "Disabled"
-config.window_close_confirmation = "NeverPrompt"
+config.window_close_confirmation = "AlwaysPrompt"
 
 -- 新規ペイン/タブは現在のディレクトリを継承
 config.default_cwd = wezterm.home_dir
