@@ -336,10 +336,8 @@ diffwatch() {
     echo -e "${C_GREEN}${C_BOLD}  📊 MONITOR │ ${branch}${C_RESET}"
     echo -e "${C_GREEN}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
 
-    # サマリー
-    echo -e "  ${C_YELLOW}●${C_RESET} Modified:  ${C_BOLD}${modified}${C_RESET}"
-    echo -e "  ${C_GREEN}◆${C_RESET} Staged:    ${C_BOLD}${staged}${C_RESET}"
-    echo -e "  ${C_GRAY}?${C_RESET} Untracked: ${C_BOLD}${untracked}${C_RESET}"
+    # サマリー（1行）
+    echo -e "  ${C_YELLOW}●${modified}${C_RESET} ${C_GREEN}◆${staged}${C_RESET} ${C_GRAY}?${untracked}${C_RESET}"
 
     # ファイルツリー表示（tree風）
     echo -e "${C_GRAY}$(_line '─' 35)${C_RESET}"
@@ -599,10 +597,6 @@ diffwatch() {
       total_stats=$(echo "$total_stats" | sed -E 's/([0-9]+) deletion/\x1b[31m\1 deletion\x1b[0m/g')
       echo -e "  ${total_stats}"
     fi
-
-    # タイムスタンプ
-    echo -e "${C_GRAY}  🕐 $(date '+%H:%M:%S') │ ${interval}s refresh${C_RESET}"
-    echo -e "${C_GRAY}  Press Ctrl+C to stop${C_RESET}"
 
     sleep "$interval"
   done
@@ -1141,14 +1135,8 @@ allworktrees() {
           for k in "${(@k)path_add_count}"; do all_paths[$k]=1; done
           for k in "${(@k)path_del_count}"; do all_paths[$k]=1; done
 
-          # ソートして表示（上位5件）
-          local display_count=0
-          local max_display=5
-          local total_paths=${#all_paths[@]}
-
+          # ソートして表示（全て表示）
           for path_key in "${(@kon)all_paths}"; do
-            display_count=$((display_count + 1))
-            [[ $display_count -gt $max_display ]] && break
 
             local add_count=${path_additions[$path_key]:-0}
             local del_count=${path_deletions[$path_key]:-0}
@@ -1172,12 +1160,6 @@ allworktrees() {
 
             echo -e "  ${C_GRAY}├─${C_RESET} ${path_key} ${stats} ${C_GRAY}(${C_RESET}${file_labels}${C_GRAY})${C_RESET}"
           done
-
-          # 残りのパス数を表示
-          if [[ $total_paths -gt $max_display ]]; then
-            local remaining=$((total_paths - max_display))
-            echo -e "  ${C_GRAY}└─ ...${remaining} more${C_RESET}"
-          fi
         fi
 
         echo ""
