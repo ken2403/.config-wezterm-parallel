@@ -1094,75 +1094,88 @@ allworktrees() {
           echo -e "  ${C_YELLOW}●${modified}${C_RESET} ${C_GREEN}◆${staged}${C_RESET} ${C_GRAY}?${untracked}${C_RESET}"
         fi
 
-        # 変更ファイル（上位5つのみ、tree形式、差分付き）
+        # 変更ファイル（2階層目までのディレクトリ/ファイルで集計）
         if [[ $changed_files -gt 0 ]]; then
-          local file_count=0
-          local max_files=5
+          # 2階層目までのパスで集計
+          local -A path_additions=()
+          local -A path_deletions=()
+          local -A path_mod_count=()
+          local -A path_add_count=()
+          local -A path_del_count=()
 
           while IFS=$'\t' read -r file_status filepath; do
             [[ -z "$filepath" ]] && continue
-            file_count=$((file_count + 1))
-            [[ $file_count -gt $max_files ]] && break
 
-            local filename=$(basename "$filepath")
-            local dirname=$(dirname "$filepath")
+            # 2階層目までのパスを取得
+            local path_key=""
+            local depth=$(echo "$filepath" | tr '/' '\n' | wc -l | tr -d ' ')
 
-            # Status icon and color
-            local icon=""
-            local color=""
-            local status_label=""
+            if [[ $depth -le 2 ]]; then
+              # 2階層以下ならそのまま
+              path_key="$filepath"
+            else
+              # 3階層以上なら2階層目まで + /
+              path_key=$(echo "$filepath" | cut -d'/' -f1-2)"/"
+            fi
 
+            # ステータス別ファイル数カウント
             case "$file_status" in
-              M)
-                icon="${C_YELLOW}●${C_RESET}"
-                color="${C_YELLOW}"
-                status_label="[mod]"
-                ;;
-              A)
-                icon="${C_GREEN}◆${C_RESET}"
-                color="${C_GREEN}"
-                status_label="[add]"
-                ;;
-              D)
-                icon="${C_RED}●${C_RESET}"
-                color="${C_RED}"
-                status_label="[del]"
-                ;;
-              R*)
-                icon="${C_BLUE}●${C_RESET}"
-                color="${C_BLUE}"
-                status_label="[ren]"
-                ;;
-              *)
-                icon="${C_YELLOW}●${C_RESET}"
-                color="${C_YELLOW}"
-                status_label="[${file_status}]"
-                ;;
+              M) path_mod_count[$path_key]=$((${path_mod_count[$path_key]:-0} + 1)) ;;
+              A) path_add_count[$path_key]=$((${path_add_count[$path_key]:-0} + 1)) ;;
+              D) path_del_count[$path_key]=$((${path_del_count[$path_key]:-0} + 1)) ;;
             esac
 
-            # Get stats
+            # 差分統計を取得して集計
+            if [[ "$file_status" != "D" ]]; then
+              local numstat=$(git diff --numstat "${default_branch}...HEAD" -- "$filepath" 2>/dev/null)
+              local add=$(echo "$numstat" | awk '{print $1}')
+              local del=$(echo "$numstat" | awk '{print $2}')
+              [[ "$add" =~ ^[0-9]+$ ]] && path_additions[$path_key]=$((${path_additions[$path_key]:-0} + add))
+              [[ "$del" =~ ^[0-9]+$ ]] && path_deletions[$path_key]=$((${path_deletions[$path_key]:-0} + del))
+            fi
+          done < <(git diff --name-status "${default_branch}...HEAD" 2>/dev/null)
+
+          # すべてのパスキーを収集
+          local -A all_paths=()
+          for k in "${(@k)path_mod_count}"; do all_paths[$k]=1; done
+          for k in "${(@k)path_add_count}"; do all_paths[$k]=1; done
+          for k in "${(@k)path_del_count}"; do all_paths[$k]=1; done
+
+          # ソートして表示（上位5件）
+          local display_count=0
+          local max_display=5
+          local total_paths=${#all_paths[@]}
+
+          for path_key in "${(@kon)all_paths}"; do
+            display_count=$((display_count + 1))
+            [[ $display_count -gt $max_display ]] && break
+
+            local add_count=${path_additions[$path_key]:-0}
+            local del_count=${path_deletions[$path_key]:-0}
+            local mod_num=${path_mod_count[$path_key]:-0}
+            local add_num=${path_add_count[$path_key]:-0}
+            local del_num=${path_del_count[$path_key]:-0}
+
+            # 差分統計を色付け
             local stats=""
-            if [[ "$file_status" == "D" ]]; then
-              stats=""
-            else
-              stats=$(git diff --numstat "${default_branch}...HEAD" -- "$filepath" 2>/dev/null | awk '{print "+"$1" -"$2}')
-              stats=$(_colorize_stats "$stats")
+            if [[ $add_count -gt 0 ]] || [[ $del_count -gt 0 ]]; then
+              stats="${C_GREEN}+${add_count}${C_RESET} ${C_RED}-${del_count}${C_RESET}"
             fi
 
-            # Display
-            local display_path=""
-            if [[ "$dirname" != "." ]]; then
-              display_path="${dirname}/${filename}"
-            else
-              display_path="${filename}"
-            fi
+            # ファイル数表示（M:黄, A:緑, D:赤）
+            local file_labels=""
+            [[ $mod_num -gt 0 ]] && file_labels+="${C_YELLOW}M${mod_num}${C_RESET} "
+            [[ $add_num -gt 0 ]] && file_labels+="${C_GREEN}A${add_num}${C_RESET} "
+            [[ $del_num -gt 0 ]] && file_labels+="${C_RED}D${del_num}${C_RESET} "
+            # 末尾の空白を削除
+            file_labels="${file_labels% }"
 
-            echo -e "  ${C_GRAY}├─${C_RESET} ${display_path} ${icon} ${color}${status_label}${C_RESET} ${stats}"
-          done < <(git diff --name-status "${default_branch}...HEAD" 2>/dev/null | head -${max_files})
+            echo -e "  ${C_GRAY}├─${C_RESET} ${path_key} ${stats} ${C_GRAY}(${C_RESET}${file_labels}${C_GRAY})${C_RESET}"
+          done
 
-          # 残りのファイル数を表示
-          if [[ $changed_files -gt $max_files ]]; then
-            local remaining=$((changed_files - max_files))
+          # 残りのパス数を表示
+          if [[ $total_paths -gt $max_display ]]; then
+            local remaining=$((total_paths - max_display))
             echo -e "  ${C_GRAY}└─ ...${remaining} more${C_RESET}"
           fi
         fi
