@@ -218,23 +218,23 @@ config.keys = {
   { key = "d", mods = "CMD", action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
   { key = "d", mods = "CMD|SHIFT", action = act.SplitVertical({ domain = "CurrentPaneDomain" }) },
 
-  -- ペイン移動 (Cmd+Option+矢印)
-  { key = "LeftArrow", mods = "CMD|OPT", action = act.ActivatePaneDirection("Left") },
-  { key = "RightArrow", mods = "CMD|OPT", action = act.ActivatePaneDirection("Right") },
-  { key = "UpArrow", mods = "CMD|OPT", action = act.ActivatePaneDirection("Up") },
-  { key = "DownArrow", mods = "CMD|OPT", action = act.ActivatePaneDirection("Down") },
+  -- ペイン移動 (Cmd+Ctrl+矢印)
+  { key = "LeftArrow", mods = "CMD|CTRL", action = act.ActivatePaneDirection("Left") },
+  { key = "RightArrow", mods = "CMD|CTRL", action = act.ActivatePaneDirection("Right") },
+  { key = "UpArrow", mods = "CMD|CTRL", action = act.ActivatePaneDirection("Up") },
+  { key = "DownArrow", mods = "CMD|CTRL", action = act.ActivatePaneDirection("Down") },
 
-  -- ペイン移動 (Cmd+Option+hjkl) - Vim風
-  { key = "h", mods = "CMD|OPT", action = act.ActivatePaneDirection("Left") },
-  { key = "l", mods = "CMD|OPT", action = act.ActivatePaneDirection("Right") },
-  { key = "k", mods = "CMD|OPT", action = act.ActivatePaneDirection("Up") },
-  { key = "j", mods = "CMD|OPT", action = act.ActivatePaneDirection("Down") },
+  -- ペイン移動 (Cmd+Ctrl+hjkl) - Vim風
+  { key = "h", mods = "CMD|CTRL", action = act.ActivatePaneDirection("Left") },
+  { key = "l", mods = "CMD|CTRL", action = act.ActivatePaneDirection("Right") },
+  { key = "k", mods = "CMD|CTRL", action = act.ActivatePaneDirection("Up") },
+  { key = "j", mods = "CMD|CTRL", action = act.ActivatePaneDirection("Down") },
 
-  -- ペイン番号で直接移動 (Cmd+Opt+1-4)
-  { key = "1", mods = "CMD|OPT", action = act.ActivatePaneByIndex(0) },  -- AI Pane
-  { key = "2", mods = "CMD|OPT", action = act.ActivatePaneByIndex(1) },  -- Monitor (working diff)
-  { key = "3", mods = "CMD|OPT", action = act.ActivatePaneByIndex(2) },  -- Monitor (all worktrees)
-  { key = "4", mods = "CMD|OPT", action = act.ActivatePaneByIndex(3) },  -- Human
+  -- ペイン番号で直接移動 (Cmd+Ctrl+1-4)
+  { key = "1", mods = "CMD|CTRL", action = act.ActivatePaneByIndex(0) },  -- AI Pane
+  { key = "2", mods = "CMD|CTRL", action = act.ActivatePaneByIndex(1) },  -- Monitor (working diff)
+  { key = "3", mods = "CMD|CTRL", action = act.ActivatePaneByIndex(2) },  -- Monitor (all worktrees)
+  { key = "4", mods = "CMD|CTRL", action = act.ActivatePaneByIndex(3) },  -- Human
 
   -- ペインサイズ調整
   { key = "LeftArrow", mods = "CMD|SHIFT", action = act.AdjustPaneSize({ "Left", 5 }) },
@@ -249,7 +249,7 @@ config.keys = {
   { key = "z", mods = "CMD", action = act.TogglePaneZoomState },
 
   -- ペインを入れ替え
-  { key = "0", mods = "CMD|OPT", action = act.PaneSelect({ mode = "SwapWithActive" }) },
+  { key = "0", mods = "CMD|CTRL", action = act.PaneSelect({ mode = "SwapWithActive" }) },
 
   -- Quick Select (パス/URL等を選択)
   { key = " ", mods = "CMD|SHIFT", action = act.QuickSelect },

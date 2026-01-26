@@ -139,12 +139,12 @@ pdev feat-auth-login
 |------|------|
 | `Cmd+D` | 縦分割（左右に分ける） |
 | `Cmd+Shift+D` | 横分割（上下に分ける） |
-| `Cmd+Opt+矢印` | ペイン移動 |
-| `Cmd+Opt+h/j/k/l` | Vim風ペイン移動 |
-| `Cmd+Opt+1/2/3/4` | ペイン番号で直接移動（1:AI, 2:Working, 3:Branch, 4:Human） |
+| `Cmd+Ctrl+矢印` | ペイン移動 |
+| `Cmd+Ctrl+h/j/k/l` | Vim風ペイン移動 |
+| `Cmd+Ctrl+1/2/3/4` | ペイン番号で直接移動（1:AI, 2:Working, 3:Branch, 4:Human） |
 | `Cmd+Z` | ペインズーム（トグル） |
 | `Cmd+Shift+W` | ペインを閉じる |
-| `Cmd+Opt+0` | ペインを入れ替え |
+| `Cmd+Ctrl+0` | ペインを入れ替え |
 
 ### ペインサイズ調整
 
